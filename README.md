@@ -6,13 +6,21 @@
 
 ## 当前状态
 
-当前处于 M0.5 阶段：项目骨架已建立，CMake + vcpkg 可以配置、安装依赖、编译并运行最小程序。
+当前处于 M1 阶段：项目骨架已建立，CMake + vcpkg 可以配置、安装依赖、编译运行，并已接入 OpenAI 兼容格式的基础对话 API。
 
 ```powershell
 cmake --preset msvc-vcpkg-debug
 cmake --build --preset msvc-vcpkg-debug
 .\build\msvc-vcpkg-debug\ai-agent.exe
 ```
+
+运行前需要配置 API Key：
+
+```powershell
+$env:OPENAI_API_KEY="你的 API Key"
+```
+
+如需使用第三方 OpenAI 兼容平台，可修改 `config/settings.json` 中的 `base_url` 和 `model`。
 
 ## 核心目标
 

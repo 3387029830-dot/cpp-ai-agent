@@ -2,7 +2,8 @@
   "llm": {
     "base_url": "https://api.openai.com/v1",
     "model": "gpt-4.1-mini",
-    "api_key_env": "OPENAI_API_KEY"
+    "api_key_env": "OPENAI_API_KEY",
+    "proxy_url": "http://127.0.0.1:7897"
   },
   "agent": {
     "max_iterations": 10
@@ -15,4 +16,3 @@
     "history_dir": "logs"
   }
 }
-
