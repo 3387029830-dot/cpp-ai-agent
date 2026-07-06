@@ -6,12 +6,12 @@
 
 ## 当前状态
 
-当前处于 M0 阶段：项目骨架已建立，CMake 可以配置、编译并运行最小程序。
+当前处于 M0.5 阶段：项目骨架已建立，CMake + vcpkg 可以配置、安装依赖、编译并运行最小程序。
 
 ```powershell
-cmake -B build -S .
-cmake --build build --config Release
-.\build\ai-agent.exe
+cmake --preset msvc-vcpkg-debug
+cmake --build --preset msvc-vcpkg-debug
+.\build\msvc-vcpkg-debug\ai-agent.exe
 ```
 
 ## 核心目标
@@ -28,7 +28,8 @@ cmake --build build --config Release
 | 类别 | 选型 |
 |------|------|
 | 语言 | C++17 |
-| 构建 | CMake |
+| 构建 | CMake + CMakePresets |
+| 依赖管理 | vcpkg manifest |
 | 编译器 | MSVC / Visual Studio Build Tools |
 | HTTP | cpr |
 | JSON | nlohmann/json |
@@ -41,7 +42,10 @@ cmake --build build --config Release
 ```text
 cpp-ai-agent/
 ├── CMakeLists.txt
+├── CMakePresets.json
+├── vcpkg.json
 ├── README.md
+├── config/
 ├── docs/
 ├── src/
 ├── tests/
@@ -59,6 +63,7 @@ cpp-ai-agent/
 | 阶段 | 目标 |
 |------|------|
 | M0 | CMake 项目骨架，最小程序可编译运行 |
+| M0.5 | vcpkg 依赖管理、配置文件、测试目录、格式化配置 |
 | M1 | 接入大模型 API，实现基础对话 |
 | M2 | 实现工具接口、工具注册表、文件和命令工具 |
 | M3 | 实现 Agent 主循环，支持模型自主调用工具 |

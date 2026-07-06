@@ -10,8 +10,14 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+find_package(nlohmann_json CONFIG REQUIRED)
+
 add_executable(ai-agent
     src/main.cpp
+)
+
+target_link_libraries(ai-agent PRIVATE
+    nlohmann_json::nlohmann_json
 )
 
 if(MSVC)
@@ -19,4 +25,3 @@ if(MSVC)
 else()
     target_compile_options(ai-agent PRIVATE -Wall -Wextra -Wpedantic)
 endif()
-

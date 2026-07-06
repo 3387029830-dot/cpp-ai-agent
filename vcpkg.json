@@ -1,0 +1,11 @@
+{
+  "name": "cpp-ai-agent",
+  "version-string": "0.1.0",
+  "description": "A terminal AI coding agent written in C++17.",
+  "builtin-baseline": "f6aa95f283a88921d326d2a7093602ff984b20f8",
+  "dependencies": [
+    "cpr",
+    "nlohmann-json",
+    "doctest"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "version": 8,
+  "configurePresets": [
+    {
+      "name": "msvc-vcpkg-debug",
+      "displayName": "MSVC + vcpkg Debug",
+      "description": "Use Visual Studio Build Tools, NMake, and vcpkg manifest dependencies.",
+      "generator": "NMake Makefiles",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-windows"
+      },
+      "environment": {
+        "VCPKG_ROOT": "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/vcpkg"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "msvc-vcpkg-debug",
+      "configurePreset": "msvc-vcpkg-debug"
+    }
+  ]
+}
+

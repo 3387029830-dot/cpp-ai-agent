@@ -1,8 +1,15 @@
 #include <iostream>
+#include <nlohmann/json.hpp>
 #include <string>
 
 int main() {
     std::cout << "cpp-ai-agent M0 is running.\n";
+    const nlohmann::json runtimeInfo = {
+        {"stage", "M0.5"},
+        {"dependency_manager", "vcpkg"},
+        {"json_library", "nlohmann-json"}
+    };
+    std::cout << "runtime> " << runtimeInfo.dump() << "\n";
     std::cout << "Type something and press Enter. Type /exit to quit.\n\n";
 
     std::string input;
@@ -29,4 +36,3 @@ int main() {
     std::cout << "bye\n";
     return 0;
 }
-

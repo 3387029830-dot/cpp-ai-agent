@@ -3,4 +3,6 @@ build/
 *.user
 *.suo
 *.log
-
+.env
+logs/
+vcpkg_installed/
