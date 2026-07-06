@@ -185,6 +185,31 @@ int writeEnvTemplate(const std::string& provider) {
     return 0;
 }
 
+void printDemoGuide() {
+    std::cout << "demo> cpp-ai-agent M5 demonstration\n\n";
+    std::cout << "1. Build and test\n";
+    std::cout << "   cmake --preset msvc-vcpkg-debug\n";
+    std::cout << "   cmake --build --preset msvc-vcpkg-debug\n";
+    std::cout << "   cd build\\msvc-vcpkg-debug\n";
+    std::cout << "   ctest --output-on-failure\n\n";
+
+    std::cout << "2. Configure provider\n";
+    std::cout << "   .\\build\\msvc-vcpkg-debug\\ai-agent.exe /init-env deepseek\n";
+    std::cout << "   notepad .env\n";
+    std::cout << "   .\\build\\msvc-vcpkg-debug\\ai-agent.exe /doctor\n\n";
+
+    std::cout << "3. Show read_file tool calling\n";
+    std::cout << "   prompt: Read README.md and summarize this project in three bullet points.\n\n";
+
+    std::cout << "4. Show permission control\n";
+    std::cout << "   prompt: Create temp-demo.txt with the content hello agent.\n";
+    std::cout << "   expected: permission prompt for write_file; type yes to allow.\n\n";
+
+    std::cout << "5. Show history replay\n";
+    std::cout << "   .\\build\\msvc-vcpkg-debug\\ai-agent.exe /history\n";
+    std::cout << "   .\\build\\msvc-vcpkg-debug\\ai-agent.exe /replay logs\\session-xxxx.jsonl\n";
+}
+
 }  // namespace
 
 int main(int argc, char* argv[]) {
@@ -227,6 +252,11 @@ int main(int argc, char* argv[]) {
                     std::cout << file.modifiedTime << "  " << file.size << " bytes  "
                               << file.path.string() << "\n";
                 }
+                return 0;
+            }
+
+            if (command == "/demo") {
+                printDemoGuide();
                 return 0;
             }
 

@@ -122,6 +122,12 @@ $env:OPENAI_API_KEY="你的 API Key"
 .\build\msvc-vcpkg-debug\ai-agent.exe /replay logs\session-20260706-154848.jsonl
 ```
 
+查看演示脚本：
+
+```powershell
+.\build\msvc-vcpkg-debug\ai-agent.exe /demo
+```
+
 诊断当前配置：
 
 ```powershell
@@ -217,6 +223,7 @@ cpp-ai-agent/
 - [需求规格说明书](docs/01-需求规格说明书.md)
 - [系统设计文档](docs/02-系统设计文档.md)
 - [开发计划书](docs/03-开发计划书.md)
+- [演示说明](docs/04-演示说明.md)
 
 ## 里程碑
 
