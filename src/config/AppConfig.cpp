@@ -162,8 +162,15 @@ AppConfig loadAppConfig(const std::string& path) {
         config.maxIterations = json.at("agent").value("max_iterations", 10);
     }
 
+    if (json.contains("permission")) {
+        config.permissionMode = security::permissionModeFromString(
+            json.at("permission").value("mode", "ask_each_time")
+        );
+    }
+
     if (json.contains("paths")) {
         config.workspaceRoot = json.at("paths").value("workspace_root", ".");
+        config.historyDir = json.at("paths").value("history_dir", "logs");
     }
 
     return config;

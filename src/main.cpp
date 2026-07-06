@@ -3,7 +3,10 @@
 #include "core/Message.h"
 #include "core/Session.h"
 #include "llm/LlmClient.h"
+#include "security/PermissionManager.h"
+#include "storage/JsonLogger.h"
 #include "tools/FileTools.h"
+#include "tools/ShellTool.h"
 #include "tools/ToolRegistry.h"
 
 #include <exception>
@@ -140,12 +143,18 @@ int main() {
     using cpp_ai_agent::core::Role;
     using cpp_ai_agent::core::Session;
     using cpp_ai_agent::llm::LlmClient;
+    using cpp_ai_agent::security::PermissionManager;
+    using cpp_ai_agent::security::PermissionRequest;
+    using cpp_ai_agent::storage::JsonLogger;
+    using cpp_ai_agent::tools::EditFileTool;
     using cpp_ai_agent::tools::ReadFileTool;
+    using cpp_ai_agent::tools::ShellTool;
     using cpp_ai_agent::tools::ToolRegistry;
+    using cpp_ai_agent::tools::WriteFileTool;
 
     const auto consoleEncoding = configureConsoleEncoding();
 
-    std::cout << "cpp-ai-agent M3 is running.\n";
+    std::cout << "cpp-ai-agent M4 is running.\n";
     std::cout << "Type a message and press Enter. Type /exit to quit.\n\n";
 
     try {
@@ -153,10 +162,34 @@ int main() {
         LlmClient llm(appConfig.llm);
         ToolRegistry tools;
         tools.registerTool(std::make_shared<ReadFileTool>(std::filesystem::path(appConfig.workspaceRoot)));
+        tools.registerTool(std::make_shared<WriteFileTool>(std::filesystem::path(appConfig.workspaceRoot)));
+        tools.registerTool(std::make_shared<EditFileTool>(std::filesystem::path(appConfig.workspaceRoot)));
+        tools.registerTool(std::make_shared<ShellTool>());
+
+        PermissionManager permissions(
+            appConfig.permissionMode,
+            [](const PermissionRequest& request) {
+                std::cout << "\npermission> allow tool '" << request.toolName << "' (risk="
+                          << cpp_ai_agent::security::riskLevelToString(request.risk) << ")?\n";
+                std::cout << "arguments> " << request.arguments << "\n";
+                std::cout << "type yes to allow> ";
+
+                std::string answer;
+                if (!std::getline(std::cin, answer)) {
+                    return false;
+                }
+
+                return answer == "yes" || answer == "y";
+            }
+        );
+        JsonLogger logger(std::filesystem::path(appConfig.historyDir));
+        std::cout << "log> " << logger.path().string() << "\n";
 
         cpp_ai_agent::agent::AgentLoop agentLoop(
             llm,
             tools,
+            permissions,
+            logger,
             appConfig.maxIterations,
             [](const cpp_ai_agent::agent::AgentEvent& event) {
                 using cpp_ai_agent::agent::AgentEventType;
@@ -199,6 +232,7 @@ int main() {
 
             input = convertToUtf8(input, consoleEncoding);
             session.addMessage(makeMessage(Role::User, input));
+            logger.log("user_message", {{"content", input}});
 
             try {
                 const auto reply = agentLoop.runTurn(session);

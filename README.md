@@ -6,7 +6,7 @@
 
 ## 当前状态
 
-当前处于 M3 阶段：项目骨架已建立，CMake + vcpkg 可以配置、安装依赖、编译运行；M1 已完成 OpenAI 兼容格式 API 的真实对话验证，M2 已完成本地工具系统第一版，M3 已接入 Agent 主循环。
+当前处于 M4 阶段：项目骨架已建立，CMake + vcpkg 可以配置、安装依赖、编译运行；M1 已完成 OpenAI 兼容格式 API 的真实对话验证，M2 已完成本地工具系统第一版，M3 已接入 Agent 主循环，M4 已完成权限确认和 JSON 日志第一版。
 
 ## 快速开始
 
@@ -96,6 +96,8 @@ cpp-ai-agent/
 │   ├── config/
 │   ├── core/
 │   ├── llm/
+│   ├── security/
+│   ├── storage/
 │   └── tools/
 ├── tests/
 │   ├── config_tests.cpp
@@ -117,6 +119,8 @@ cpp-ai-agent/
 | `docs/` | 项目文档 |
 | `src/` | C++ 源代码 |
 | `src/agent/` | Agent 主循环，负责模型工具调用和结果回填 |
+| `src/security/` | 权限确认和危险命令拦截 |
+| `src/storage/` | JSONL 会话日志 |
 | `tests/` | 单元测试代码 |
 | `build/` | 构建产物目录，不提交到 Git |
 
@@ -137,7 +141,7 @@ cpp-ai-agent/
 | M1 | 接入大模型 API，实现基础对话 |
 | M2 | 实现工具接口、工具注册表、文件和命令工具 |
 | M3 | 实现 Agent 主循环，支持模型自主调用 `read_file` 并回填结果 |
-| M4 | 加入权限控制、日志记录和历史回放 |
+| M4 | 加入权限控制、日志记录，历史回放待完善 |
 | M5 | 完善 TUI、搜索、Skill、MCP 演示和测试 |
 
 ## 说明

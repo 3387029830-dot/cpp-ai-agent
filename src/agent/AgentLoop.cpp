@@ -1,7 +1,5 @@
 #include "agent/AgentLoop.h"
 
-#include "tools/ITool.h"
-
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
@@ -11,19 +9,6 @@
 namespace cpp_ai_agent::agent {
 
 namespace {
-
-std::string riskLevelToString(tools::RiskLevel risk) {
-    switch (risk) {
-        case tools::RiskLevel::Safe:
-            return "safe";
-        case tools::RiskLevel::Write:
-            return "write";
-        case tools::RiskLevel::Dangerous:
-            return "dangerous";
-    }
-
-    return "unknown";
-}
 
 std::string shortText(const std::string& value, std::size_t maxLength = 300) {
     if (value.size() <= maxLength) {
@@ -38,11 +23,15 @@ std::string shortText(const std::string& value, std::size_t maxLength = 300) {
 AgentLoop::AgentLoop(
     const llm::LlmClient& llm,
     const tools::ToolRegistry& tools,
+    const security::PermissionManager& permissions,
+    storage::JsonLogger& logger,
     int maxIterations,
     AgentEventCallback onEvent
 )
     : llm_(llm),
       tools_(tools),
+      permissions_(permissions),
+      logger_(logger),
       maxIterations_(std::max(1, maxIterations)),
       onEvent_(std::move(onEvent)) {}
 
@@ -50,6 +39,7 @@ core::Message AgentLoop::runTurn(core::Session& session) const {
     for (int iteration = 0; iteration < maxIterations_; ++iteration) {
         auto assistant = llm_.chat(session.messages(), tools_.toolsSpec());
         session.addMessage(assistant);
+        logger_.log("assistant_message", {{"content", assistant.content}});
 
         if (assistant.toolCalls.empty()) {
             emit({
@@ -66,6 +56,14 @@ core::Message AgentLoop::runTurn(core::Session& session) const {
                 toolCall.name,
                 toolCall.arguments,
             });
+            logger_.log(
+                "tool_call",
+                {
+                    {"id", toolCall.id},
+                    {"name", toolCall.name},
+                    {"arguments", toolCall.arguments},
+                }
+            );
 
             auto toolMessage = executeToolCall(toolCall);
             emit({
@@ -73,6 +71,13 @@ core::Message AgentLoop::runTurn(core::Session& session) const {
                 toolCall.name,
                 shortText(toolMessage.content),
             });
+            logger_.log(
+                "tool_result",
+                {
+                    {"tool_call_id", toolMessage.toolCallId},
+                    {"content", toolMessage.content},
+                }
+            );
             session.addMessage(std::move(toolMessage));
         }
     }
@@ -81,6 +86,7 @@ core::Message AgentLoop::runTurn(core::Session& session) const {
     warning.role = core::Role::Assistant;
     warning.content = "Stopped because the agent reached the maximum tool-call iterations.";
     session.addMessage(warning);
+    logger_.log("warning", {{"content", warning.content}});
     emit({
         AgentEventType::Warning,
         "max_iterations",
@@ -106,10 +112,10 @@ core::Message AgentLoop::executeToolCall(const core::ToolCall& toolCall) const {
         return toolMessage;
     }
 
-    if (tool->risk() != tools::RiskLevel::Safe) {
+    if (!permissions_.approve({toolCall.name, tool->risk(), toolCall.arguments})) {
         toolMessage.content =
-            "Tool '" + toolCall.name + "' has risk level '" + riskLevelToString(tool->risk()) +
-            "' and is not auto-executed before M4 permission control is implemented.";
+            "Tool '" + toolCall.name + "' with risk level '" +
+            security::riskLevelToString(tool->risk()) + "' was not approved.";
         return toolMessage;
     }
 

@@ -3,6 +3,8 @@
 #include "core/Message.h"
 #include "core/Session.h"
 #include "llm/LlmClient.h"
+#include "security/PermissionManager.h"
+#include "storage/JsonLogger.h"
 #include "tools/ToolRegistry.h"
 
 #include <functional>
@@ -31,6 +33,8 @@ public:
     AgentLoop(
         const llm::LlmClient& llm,
         const tools::ToolRegistry& tools,
+        const security::PermissionManager& permissions,
+        storage::JsonLogger& logger,
         int maxIterations,
         AgentEventCallback onEvent = {}
     );
@@ -43,6 +47,8 @@ private:
 
     const llm::LlmClient& llm_;
     const tools::ToolRegistry& tools_;
+    const security::PermissionManager& permissions_;
+    storage::JsonLogger& logger_;
     int maxIterations_ = 10;
     AgentEventCallback onEvent_;
 };
