@@ -13,6 +13,7 @@
 
 #include <exception>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -138,6 +139,52 @@ std::string convertToUtf8(const std::string& value, ConsoleEncoding) {
 }
 #endif
 
+std::string envTemplateForProvider(const std::string& provider) {
+    if (provider == "deepseek") {
+        return
+            "OPENAI_API_KEY=your_deepseek_key_here\n"
+            "OPENAI_BASE_URL=https://api.deepseek.com\n"
+            "OPENAI_MODEL=deepseek-chat\n"
+            "OPENAI_PROXY_URL=\n";
+    }
+
+    if (provider == "linkapi") {
+        return
+            "OPENAI_API_KEY=your_linkapi_key_here\n"
+            "OPENAI_BASE_URL=https://api.linkapi.ai/v1\n"
+            "OPENAI_MODEL=gpt-5.4-mini\n"
+            "OPENAI_PROXY_URL=\n";
+    }
+
+    return "";
+}
+
+int writeEnvTemplate(const std::string& provider) {
+    const auto content = envTemplateForProvider(provider);
+    if (content.empty()) {
+        std::cout << "usage> ai-agent.exe /init-env deepseek|linkapi\n";
+        return 1;
+    }
+
+    const auto envPath = std::filesystem::path(".env");
+    if (std::filesystem::exists(envPath)) {
+        std::cout << "init-env> .env already exists; not overwriting it.\n";
+        std::cout << "hint> Edit .env manually, or rename/delete it before running /init-env.\n";
+        return 1;
+    }
+
+    std::ofstream output(envPath, std::ios::binary | std::ios::trunc);
+    if (!output) {
+        std::cout << "init-env> failed to create .env\n";
+        return 1;
+    }
+
+    output << content;
+    std::cout << "init-env> wrote .env for " << provider << "\n";
+    std::cout << "hint> Open .env and replace the placeholder API key.\n";
+    return 0;
+}
+
 }  // namespace
 
 int main(int argc, char* argv[]) {
@@ -181,6 +228,14 @@ int main(int argc, char* argv[]) {
                               << file.path.string() << "\n";
                 }
                 return 0;
+            }
+
+            if (command == "/init-env") {
+                if (argc < 3) {
+                    std::cout << "usage> ai-agent.exe /init-env deepseek|linkapi\n";
+                    return 1;
+                }
+                return writeEnvTemplate(argv[2]);
             }
 
             if (command == "/config") {

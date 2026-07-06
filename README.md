@@ -86,6 +86,15 @@ copy examples\env.linkapi.example .env
 copy examples\env.deepseek.example .env
 ```
 
+或者让程序生成 `.env` 模板：
+
+```powershell
+.\build\msvc-vcpkg-debug\ai-agent.exe /init-env deepseek
+.\build\msvc-vcpkg-debug\ai-agent.exe /init-env linkapi
+```
+
+生成后打开 `.env`，把占位 API Key 换成真实 Key。
+
 ### 3. 构建和运行
 
 构建并运行：
