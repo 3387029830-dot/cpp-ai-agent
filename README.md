@@ -6,7 +6,34 @@
 
 ## 当前状态
 
-当前处于 M1 阶段：项目骨架已建立，CMake + vcpkg 可以配置、安装依赖、编译运行，并已接入 OpenAI 兼容格式的基础对话 API。
+当前处于 M2 阶段：项目骨架已建立，CMake + vcpkg 可以配置、安装依赖、编译运行；M1 已完成 OpenAI 兼容格式 API 的真实对话验证，M2 已完成本地工具系统第一版。
+
+## 快速开始
+
+克隆仓库：
+
+```powershell
+git clone https://github.com/3387029830-dot/cpp-ai-agent.git
+cd cpp-ai-agent
+```
+
+复制环境变量样例并填写自己的 API Key：
+
+```powershell
+copy .env.example .env
+notepad .env
+```
+
+`.env` 示例：
+
+```text
+OPENAI_API_KEY=你的 API Key
+OPENAI_BASE_URL=https://api.linkapi.ai/v1
+OPENAI_MODEL=gpt-5.4-mini
+OPENAI_PROXY_URL=
+```
+
+构建并运行：
 
 ```powershell
 cmake --preset msvc-vcpkg-debug
@@ -14,13 +41,13 @@ cmake --build --preset msvc-vcpkg-debug
 .\build\msvc-vcpkg-debug\ai-agent.exe
 ```
 
-运行前需要配置 API Key：
+也可以不创建 `.env`，改用系统环境变量：
 
 ```powershell
 $env:OPENAI_API_KEY="你的 API Key"
 ```
 
-如需使用第三方 OpenAI 兼容平台，可修改 `config/settings.json` 中的 `base_url` 和 `model`。
+程序读取配置的优先级为：系统环境变量 > `.env` > `config/settings.json`。
 
 ## 核心目标
 
@@ -64,9 +91,14 @@ cpp-ai-agent/
 │   ├── 02-系统设计文档.md
 │   └── 03-开发计划书.md
 ├── src/
-│   └── main.cpp
+│   ├── main.cpp
+│   ├── config/
+│   ├── core/
+│   ├── llm/
+│   └── tools/
 ├── tests/
-│   └── .gitkeep
+│   ├── config_tests.cpp
+│   └── tools_tests.cpp
 └── build/
 ```
 
@@ -78,6 +110,7 @@ cpp-ai-agent/
 | `CMakePresets.json` | CMake 构建预设，统一配置命令 |
 | `vcpkg.json` | vcpkg 依赖清单，声明第三方库 |
 | `.env.example` | 环境变量样例，不存放真实密钥 |
+| `.env` | 本地真实环境变量文件，不提交到 Git |
 | `.clang-format` | C++ 代码格式化规则 |
 | `config/` | 程序运行配置 |
 | `docs/` | 项目文档 |

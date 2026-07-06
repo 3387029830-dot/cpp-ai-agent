@@ -44,10 +44,12 @@ else()
 endif()
 
 add_executable(ai-agent-tests
+    src/config/AppConfig.cpp
     src/tools/FileTools.cpp
     src/tools/PathUtils.cpp
     src/tools/ShellTool.cpp
     src/tools/ToolRegistry.cpp
+    tests/config_tests.cpp
     tests/tools_tests.cpp
 )
 
