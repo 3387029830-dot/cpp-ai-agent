@@ -3,6 +3,7 @@
 #include "core/Message.h"
 
 #include <cpr/cpr.h>
+#include <cpr/ssl_options.h>
 #include <nlohmann/json.hpp>
 
 #include <stdexcept>
@@ -65,6 +66,11 @@ core::Message LlmClient::chat(const std::vector<core::Message>& messages) const 
         {"Content-Type", "application/json"},
     });
     session.SetBody(cpr::Body{requestBody.dump()});
+
+#ifdef _WIN32
+    // Schannel can fail when Windows cannot reach certificate revocation servers.
+    session.SetSslOptions(cpr::Ssl(cpr::ssl::NoRevoke{true}));
+#endif
 
     if (!config_.proxyUrl.empty()) {
         session.SetProxies(cpr::Proxies{

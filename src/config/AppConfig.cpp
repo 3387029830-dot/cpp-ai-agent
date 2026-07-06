@@ -31,6 +31,14 @@ std::string getEnvValue(const std::string& name) {
 #endif
 }
 
+std::string getEnvValueOrDefault(const std::string& name, std::string fallback) {
+    auto value = getEnvValue(name);
+    if (value.empty()) {
+        return fallback;
+    }
+    return value;
+}
+
 }  // namespace
 
 AppConfig loadAppConfig(const std::string& path) {
@@ -44,9 +52,12 @@ AppConfig loadAppConfig(const std::string& path) {
 
     AppConfig config;
     const auto llm = json.at("llm");
-    config.llm.baseUrl = llm.value("base_url", "https://api.openai.com/v1");
-    config.llm.model = llm.value("model", "gpt-4.1-mini");
-    config.llm.proxyUrl = llm.value("proxy_url", "");
+    config.llm.baseUrl = getEnvValueOrDefault(
+        "OPENAI_BASE_URL",
+        llm.value("base_url", "https://api.openai.com/v1")
+    );
+    config.llm.model = getEnvValueOrDefault("OPENAI_MODEL", llm.value("model", "gpt-4.1-mini"));
+    config.llm.proxyUrl = getEnvValueOrDefault("OPENAI_PROXY_URL", llm.value("proxy_url", ""));
 
     const auto apiKeyEnv = llm.value("api_key_env", "OPENAI_API_KEY");
     config.llm.apiKey = getEnvValue(apiKeyEnv);
