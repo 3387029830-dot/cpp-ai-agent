@@ -66,3 +66,50 @@ TEST_CASE("Diagnostics warns when base URL includes chat completions path") {
 
     CHECK(sawWarning);
 }
+
+TEST_CASE("Diagnostics accepts DeepSeek OpenAI-compatible configuration") {
+    cpp_ai_agent::config::AppConfig config;
+    config.llm.baseUrl = "https://api.deepseek.com";
+    config.llm.model = "deepseek-chat";
+    config.llm.apiKey = "test-key";
+    config.workspaceRoot = ".";
+    config.historyDir = "logs";
+
+    const auto lines =
+        cpp_ai_agent::diagnostics::formatDiagnostics(cpp_ai_agent::diagnostics::runLocalDiagnostics(config));
+
+    bool sawBaseUrlOk = false;
+    bool sawModelOk = false;
+    for (const auto& line : lines) {
+        if (line == "[ok] OPENAI_BASE_URL: https://api.deepseek.com") {
+            sawBaseUrlOk = true;
+        }
+        if (line == "[ok] OPENAI_MODEL: deepseek-chat") {
+            sawModelOk = true;
+        }
+    }
+
+    CHECK(sawBaseUrlOk);
+    CHECK(sawModelOk);
+}
+
+TEST_CASE("Diagnostics warns for unusual DeepSeek model") {
+    cpp_ai_agent::config::AppConfig config;
+    config.llm.baseUrl = "https://api.deepseek.com";
+    config.llm.model = "gpt-5.4-mini";
+    config.llm.apiKey = "test-key";
+    config.workspaceRoot = ".";
+    config.historyDir = "logs";
+
+    const auto lines =
+        cpp_ai_agent::diagnostics::formatDiagnostics(cpp_ai_agent::diagnostics::runLocalDiagnostics(config));
+
+    bool sawWarning = false;
+    for (const auto& line : lines) {
+        if (line.find("DeepSeek model should usually be") != std::string::npos) {
+            sawWarning = true;
+        }
+    }
+
+    CHECK(sawWarning);
+}

@@ -70,6 +70,22 @@ OPENAI_MODEL=gpt-5.4-mini
 OPENAI_PROXY_URL=
 ```
 
+如果使用 DeepSeek，可以改成：
+
+```text
+OPENAI_API_KEY=你的 DeepSeek API Key
+OPENAI_BASE_URL=https://api.deepseek.com
+OPENAI_MODEL=deepseek-chat
+OPENAI_PROXY_URL=
+```
+
+也可以直接复制样例：
+
+```powershell
+copy examples\env.linkapi.example .env
+copy examples\env.deepseek.example .env
+```
+
 ### 3. 构建和运行
 
 构建并运行：
