@@ -45,3 +45,24 @@ TEST_CASE("Diagnostics warns for placeholder API key") {
 
     CHECK(sawWarning);
 }
+
+TEST_CASE("Diagnostics warns when base URL includes chat completions path") {
+    cpp_ai_agent::config::AppConfig config;
+    config.llm.baseUrl = "https://api.linkapi.ai/v1/chat/completions";
+    config.llm.model = "gpt-5.4-mini";
+    config.llm.apiKey = "test-key";
+    config.workspaceRoot = ".";
+    config.historyDir = "logs";
+
+    const auto lines =
+        cpp_ai_agent::diagnostics::formatDiagnostics(cpp_ai_agent::diagnostics::runLocalDiagnostics(config));
+
+    bool sawWarning = false;
+    for (const auto& line : lines) {
+        if (line.find("do not include /chat/completions") != std::string::npos) {
+            sawWarning = true;
+        }
+    }
+
+    CHECK(sawWarning);
+}

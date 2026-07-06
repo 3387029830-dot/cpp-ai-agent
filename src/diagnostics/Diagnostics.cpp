@@ -33,6 +33,11 @@ DiagnosticItem warn(std::string name, std::string detail) {
     return {"warn", std::move(name), std::move(detail)};
 }
 
+bool endsWith(const std::string& value, const std::string& suffix) {
+    return value.size() >= suffix.size() &&
+           value.compare(value.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
 }  // namespace
 
 std::vector<DiagnosticItem> runLocalDiagnostics(const config::AppConfig& config) {
@@ -40,6 +45,10 @@ std::vector<DiagnosticItem> runLocalDiagnostics(const config::AppConfig& config)
 
     if (config.llm.baseUrl.empty()) {
         items.push_back(warn("OPENAI_BASE_URL", "missing base_url"));
+    } else if (endsWith(config.llm.baseUrl, "/chat/completions")) {
+        items.push_back(warn("OPENAI_BASE_URL", "base_url must stop at /v1; do not include /chat/completions"));
+    } else if (config.llm.baseUrl.find("/v1") == std::string::npos) {
+        items.push_back(warn("OPENAI_BASE_URL", "expected an OpenAI-compatible /v1 base URL, for example https://api.linkapi.ai/v1"));
     } else {
         items.push_back(ok("OPENAI_BASE_URL", config.llm.baseUrl));
     }
@@ -48,6 +57,8 @@ std::vector<DiagnosticItem> runLocalDiagnostics(const config::AppConfig& config)
         items.push_back(warn("OPENAI_MODEL", "missing model"));
     } else if (config.llm.model == "gpt-5.3-codex") {
         items.push_back(warn("OPENAI_MODEL", "gpt-5.3-codex is not available for the current LinkAPI account; use gpt-5.4-mini"));
+    } else if (config.llm.model != "gpt-5.4-mini" && config.llm.model != "gpt-5.4" && config.llm.model != "gpt-5.5") {
+        items.push_back(warn("OPENAI_MODEL", "model is not one of the LinkAPI models verified for this project: gpt-5.4-mini, gpt-5.4, gpt-5.5"));
     } else {
         items.push_back(ok("OPENAI_MODEL", config.llm.model));
     }
