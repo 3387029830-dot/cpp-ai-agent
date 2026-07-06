@@ -6,7 +6,7 @@
 
 ## 当前状态
 
-当前处于 M4 阶段：项目骨架已建立，CMake + vcpkg 可以配置、安装依赖、编译运行；M1 已完成 OpenAI 兼容格式 API 的真实对话验证，M2 已完成本地工具系统第一版，M3 已接入 Agent 主循环，M4 已完成权限确认、JSON 日志和历史回放第一版。
+当前版本：v0.1.0。项目已完成 M0-M5 演示版闭环：CMake + vcpkg 构建、OpenAI 兼容 API 对话、工具调用、权限确认、JSONL 日志、历史回放、配置诊断、FTXUI 状态页和答辩材料。
 
 ## 快速开始
 
@@ -114,6 +114,27 @@ $env:OPENAI_API_KEY="你的 API Key"
 程序读取配置的优先级为：系统环境变量 > `.env` > `config/settings.json`。
 
 如果 `cmake --preset` 提示找不到编译器，请在 “x64 Native Tools Command Prompt for VS” 里运行同样命令，或先执行本机 Visual Studio 的 `VsDevCmd.bat`。
+
+### 4. 一键验收流程
+
+```powershell
+cmake --preset msvc-vcpkg-debug
+cmake --build --preset msvc-vcpkg-debug
+cd build\msvc-vcpkg-debug
+ctest --output-on-failure
+cd ..\..
+.\build\msvc-vcpkg-debug\ai-agent.exe /doctor
+.\build\msvc-vcpkg-debug\ai-agent.exe /demo
+```
+
+可选演示：
+
+```powershell
+.\build\msvc-vcpkg-debug\ai-agent.exe /ui
+.\build\msvc-vcpkg-debug\ai-agent.exe /skills
+.\build\msvc-vcpkg-debug\ai-agent.exe /mcp-demo
+.\build\msvc-vcpkg-debug\ai-agent.exe /history
+```
 
 查看和回放历史：
 
@@ -234,6 +255,9 @@ cpp-ai-agent/
 - [开发计划书](docs/03-开发计划书.md)
 - [演示说明](docs/04-演示说明.md)
 - [答辩提纲](docs/05-答辩提纲.md)
+- [测试报告](docs/06-测试报告.md)
+- [项目总结](docs/07-项目总结.md)
+- [版本日志](docs/08-版本日志.md)
 
 ## 里程碑
 
