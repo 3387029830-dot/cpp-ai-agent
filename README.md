@@ -128,6 +128,15 @@ $env:OPENAI_API_KEY="你的 API Key"
 .\build\msvc-vcpkg-debug\ai-agent.exe /demo
 ```
 
+查看 M5 扩展演示入口：
+
+```powershell
+.\build\msvc-vcpkg-debug\ai-agent.exe /ui
+.\build\msvc-vcpkg-debug\ai-agent.exe /search
+.\build\msvc-vcpkg-debug\ai-agent.exe /skills
+.\build\msvc-vcpkg-debug\ai-agent.exe /mcp-demo
+```
+
 诊断当前配置：
 
 ```powershell
@@ -224,6 +233,7 @@ cpp-ai-agent/
 - [系统设计文档](docs/02-系统设计文档.md)
 - [开发计划书](docs/03-开发计划书.md)
 - [演示说明](docs/04-演示说明.md)
+- [答辩提纲](docs/05-答辩提纲.md)
 
 ## 里程碑
 

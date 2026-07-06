@@ -6,6 +6,7 @@
   "dependencies": [
     "cpr",
     "nlohmann-json",
-    "doctest"
+    "doctest",
+    "ftxui"
   ]
 }

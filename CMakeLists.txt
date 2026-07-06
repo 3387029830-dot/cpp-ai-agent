@@ -15,6 +15,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(cpr CONFIG REQUIRED)
 find_package(doctest CONFIG REQUIRED)
+find_package(ftxui CONFIG REQUIRED)
 
 add_executable(ai-agent
     src/agent/AgentLoop.cpp
@@ -39,6 +40,9 @@ target_include_directories(ai-agent PRIVATE
 
 target_link_libraries(ai-agent PRIVATE
     cpr::cpr
+    ftxui::component
+    ftxui::dom
+    ftxui::screen
     nlohmann_json::nlohmann_json
 )
 

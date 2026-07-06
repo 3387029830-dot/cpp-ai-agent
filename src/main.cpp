@@ -14,8 +14,11 @@
 #include <exception>
 #include <filesystem>
 #include <fstream>
+#include <ftxui/dom/elements.hpp>
+#include <ftxui/screen/screen.hpp>
 #include <iostream>
 #include <memory>
+#include <nlohmann/json.hpp>
 #include <string>
 #include <utility>
 
@@ -210,6 +213,67 @@ void printDemoGuide() {
     std::cout << "   .\\build\\msvc-vcpkg-debug\\ai-agent.exe /replay logs\\session-xxxx.jsonl\n";
 }
 
+void printSearchPlaceholder() {
+    std::cout << "search> Web search is a planned M5 extension point.\n";
+    std::cout << "search> No search provider is configured in this demo build.\n";
+    std::cout << "search> Extension idea: add a SearchTool implementing ITool and register it in ToolRegistry.\n";
+}
+
+void printSkills(const std::filesystem::path& path) {
+    std::ifstream input(path);
+    if (!input) {
+        std::cout << "skills> failed to open " << path.string() << "\n";
+        return;
+    }
+
+    nlohmann::json json;
+    input >> json;
+    const auto skills = json.value("skills", nlohmann::json::array());
+    if (skills.empty()) {
+        std::cout << "skills> no skills configured.\n";
+        std::cout << "skills> Add entries to config/skills.json to demonstrate prompt/tool presets.\n";
+        return;
+    }
+
+    for (const auto& skill : skills) {
+        std::cout << "skill> " << skill.value("name", "(unnamed)") << ": "
+                  << skill.value("description", "") << "\n";
+    }
+}
+
+void printMcpDemo() {
+    std::cout << "mcp-demo> mock MCP client demonstration\n";
+    std::cout << "mcp-demo> server: local-filesystem-mock\n";
+    std::cout << "mcp-demo> tool: read_file\n";
+    std::cout << "mcp-demo> request: {\"path\":\"README.md\"}\n";
+    std::cout << "mcp-demo> response: routed to local ToolRegistry in this demo build\n";
+    std::cout << "mcp-demo> boundary: real MCP transport is planned as a future extension.\n";
+}
+
+void printStatusUi(const cpp_ai_agent::config::AppConfig& config) {
+    using namespace ftxui;
+
+    auto document = window(
+        text("cpp-ai-agent M5 status"),
+        vbox({
+            text("LLM: " + config.llm.model),
+            text("Base URL: " + config.llm.baseUrl),
+            text("Workspace: " + config.workspaceRoot),
+            text("History: " + config.historyDir),
+            separator(),
+            text("Capabilities"),
+            text("- Chat with OpenAI-compatible APIs"),
+            text("- Tool calls: read/write/edit files, run commands"),
+            text("- Permission confirmation and JSONL logs"),
+            text("- History replay, config diagnostics, provider templates"),
+        })
+    );
+
+    auto screen = Screen::Create(Dimension::Fit(document));
+    Render(screen, document);
+    screen.Print();
+}
+
 }  // namespace
 
 int main(int argc, char* argv[]) {
@@ -257,6 +321,26 @@ int main(int argc, char* argv[]) {
 
             if (command == "/demo") {
                 printDemoGuide();
+                return 0;
+            }
+
+            if (command == "/ui") {
+                printStatusUi(appConfig);
+                return 0;
+            }
+
+            if (command == "/search") {
+                printSearchPlaceholder();
+                return 0;
+            }
+
+            if (command == "/skills") {
+                printSkills("config/skills.json");
+                return 0;
+            }
+
+            if (command == "/mcp-demo") {
+                printMcpDemo();
                 return 0;
             }
 

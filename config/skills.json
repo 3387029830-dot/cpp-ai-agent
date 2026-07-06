@@ -1,4 +1,14 @@
 {
-  "skills": []
+  "skills": [
+    {
+      "name": "project_summary",
+      "description": "Read README.md and summarize the project status, architecture, and next steps.",
+      "suggested_prompt": "请读取 README.md，并用三点总结这个项目。"
+    },
+    {
+      "name": "build_diagnosis",
+      "description": "Inspect CMake/vcpkg configuration and suggest fixes for build failures.",
+      "suggested_prompt": "请读取 CMakePresets.json、vcpkg.json 和 CMakeLists.txt，帮我排查构建问题。"
+    }
+  ]
 }
-
