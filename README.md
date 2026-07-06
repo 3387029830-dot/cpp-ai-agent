@@ -37,7 +37,7 @@ cmake --build --preset msvc-vcpkg-debug
 | 测试 | doctest 或 Catch2 |
 | 存储 | JSON 文件 |
 
-## 目录规划
+## 当前项目结构
 
 ```text
 cpp-ai-agent/
@@ -45,12 +45,39 @@ cpp-ai-agent/
 ├── CMakePresets.json
 ├── vcpkg.json
 ├── README.md
+├── .gitignore
+├── .env.example
+├── .clang-format
 ├── config/
+│   ├── settings.json
+│   └── skills.json
 ├── docs/
+│   ├── 01-需求规格说明书.md
+│   ├── 02-系统设计文档.md
+│   └── 03-开发计划书.md
 ├── src/
+│   └── main.cpp
 ├── tests/
+│   └── .gitkeep
 └── build/
 ```
+
+说明：
+
+| 路径 | 作用 |
+|------|------|
+| `CMakeLists.txt` | CMake 构建入口，说明项目如何编译 |
+| `CMakePresets.json` | CMake 构建预设，统一配置命令 |
+| `vcpkg.json` | vcpkg 依赖清单，声明第三方库 |
+| `.env.example` | 环境变量样例，不存放真实密钥 |
+| `.clang-format` | C++ 代码格式化规则 |
+| `config/` | 程序运行配置 |
+| `docs/` | 项目文档 |
+| `src/` | C++ 源代码 |
+| `tests/` | 单元测试代码 |
+| `build/` | 构建产物目录，不提交到 Git |
+
+根目录下的配置文件看起来比较多，但它们大多是 CMake、vcpkg、Git、格式化工具默认会读取的位置，因此保留在根目录更符合 C++ 工程习惯。
 
 ## 文档
 
