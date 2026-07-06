@@ -4,5 +4,6 @@ build/
 *.suo
 *.log
 .env
+CMakeUserPresets.json
 logs/
 vcpkg_installed/

@@ -10,6 +10,43 @@
 
 ## 快速开始
 
+### 1. 准备构建环境
+
+Windows 推荐安装：
+
+- Visual Studio Build Tools，包含 MSVC C++ 工具链。
+- CMake。
+- vcpkg。
+
+如果电脑上还没有 vcpkg，可以放到固定目录，例如：
+
+```powershell
+git clone https://github.com/microsoft/vcpkg.git C:\vcpkg
+C:\vcpkg\bootstrap-vcpkg.bat
+setx VCPKG_ROOT C:\vcpkg
+```
+
+重新打开 PowerShell 后确认：
+
+```powershell
+echo $env:VCPKG_ROOT
+```
+
+`CMakePresets.json` 默认读取 `$env:VCPKG_ROOT`，不会绑定某一台电脑的 Visual Studio 安装路径。
+
+如果不想设置全局环境变量，也可以复制本地 preset 样例：
+
+```powershell
+copy CMakeUserPresets.json.example CMakeUserPresets.json
+notepad CMakeUserPresets.json
+cmake --preset local-msvc-vcpkg-debug
+cmake --build --preset local-msvc-vcpkg-debug
+```
+
+`CMakeUserPresets.json` 已被 Git 忽略，适合保存每台电脑自己的 vcpkg 路径。
+
+### 2. 克隆和配置
+
 克隆仓库：
 
 ```powershell
@@ -33,6 +70,8 @@ OPENAI_MODEL=gpt-5.4-mini
 OPENAI_PROXY_URL=
 ```
 
+### 3. 构建和运行
+
 构建并运行：
 
 ```powershell
@@ -48,6 +87,8 @@ $env:OPENAI_API_KEY="你的 API Key"
 ```
 
 程序读取配置的优先级为：系统环境变量 > `.env` > `config/settings.json`。
+
+如果 `cmake --preset` 提示找不到编译器，请在 “x64 Native Tools Command Prompt for VS” 里运行同样命令，或先执行本机 Visual Studio 的 `VsDevCmd.bat`。
 
 查看和回放历史：
 
