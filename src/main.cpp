@@ -6,8 +6,18 @@
 #include <exception>
 #include <iostream>
 #include <string>
+#include <utility>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 namespace {
+
+struct ConsoleEncoding {
+    unsigned int inputCodePage = 0;
+    bool stdinIsConsole = false;
+};
 
 cpp_ai_agent::core::Message makeMessage(cpp_ai_agent::core::Role role, std::string content) {
     cpp_ai_agent::core::Message message;
@@ -16,6 +26,108 @@ cpp_ai_agent::core::Message makeMessage(cpp_ai_agent::core::Role role, std::stri
     return message;
 }
 
+#ifdef _WIN32
+ConsoleEncoding configureConsoleEncoding() {
+    DWORD consoleMode = 0;
+    ConsoleEncoding encoding;
+    encoding.stdinIsConsole = GetConsoleMode(GetStdHandle(STD_INPUT_HANDLE), &consoleMode) != 0;
+    encoding.inputCodePage = GetConsoleCP();
+    SetConsoleOutputCP(CP_UTF8);
+    if (encoding.inputCodePage == 0) {
+        encoding.inputCodePage = GetACP();
+    }
+    return encoding;
+}
+
+bool isValidUtf8(const std::string& value) {
+    if (value.empty()) {
+        return true;
+    }
+
+    return MultiByteToWideChar(
+               CP_UTF8,
+               MB_ERR_INVALID_CHARS,
+               value.data(),
+               static_cast<int>(value.size()),
+               nullptr,
+               0
+           ) > 0;
+}
+
+std::string convertToUtf8(const std::string& value, ConsoleEncoding encoding) {
+    if (value.empty()) {
+        return value;
+    }
+
+    if (!encoding.stdinIsConsole && isValidUtf8(value)) {
+        return value;
+    }
+
+    if (encoding.stdinIsConsole && encoding.inputCodePage == CP_UTF8 && isValidUtf8(value)) {
+        return value;
+    }
+
+    const auto wideLength = MultiByteToWideChar(
+        encoding.inputCodePage,
+        0,
+        value.data(),
+        static_cast<int>(value.size()),
+        nullptr,
+        0
+    );
+    if (wideLength <= 0) {
+        return value;
+    }
+
+    std::wstring wide(static_cast<std::size_t>(wideLength), L'\0');
+    MultiByteToWideChar(
+        encoding.inputCodePage,
+        0,
+        value.data(),
+        static_cast<int>(value.size()),
+        wide.data(),
+        wideLength
+    );
+
+    const auto utf8Length = WideCharToMultiByte(
+        CP_UTF8,
+        0,
+        wide.data(),
+        wideLength,
+        nullptr,
+        0,
+        nullptr,
+        nullptr
+    );
+    if (utf8Length <= 0) {
+        return value;
+    }
+
+    std::string utf8(static_cast<std::size_t>(utf8Length), '\0');
+    WideCharToMultiByte(
+        CP_UTF8,
+        0,
+        wide.data(),
+        wideLength,
+        utf8.data(),
+        utf8Length,
+        nullptr,
+        nullptr
+    );
+    return utf8;
+}
+#else
+struct ConsoleEncoding {};
+
+ConsoleEncoding configureConsoleEncoding() {
+    return {};
+}
+
+std::string convertToUtf8(const std::string& value, ConsoleEncoding) {
+    return value;
+}
+#endif
+
 }  // namespace
 
 int main() {
@@ -23,6 +135,8 @@ int main() {
     using cpp_ai_agent::core::Role;
     using cpp_ai_agent::core::Session;
     using cpp_ai_agent::llm::LlmClient;
+
+    const auto consoleEncoding = configureConsoleEncoding();
 
     std::cout << "cpp-ai-agent M1 is running.\n";
     std::cout << "Type a message and press Enter. Type /exit to quit.\n\n";
@@ -54,6 +168,7 @@ int main() {
                 continue;
             }
 
+            input = convertToUtf8(input, consoleEncoding);
             session.addMessage(makeMessage(Role::User, input));
 
             try {
@@ -75,4 +190,3 @@ int main() {
     std::cout << "bye\n";
     return 0;
 }
-
