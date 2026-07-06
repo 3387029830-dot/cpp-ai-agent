@@ -4,6 +4,7 @@
 #include "core/Session.h"
 #include "llm/LlmClient.h"
 #include "security/PermissionManager.h"
+#include "storage/HistoryReader.h"
 #include "storage/JsonLogger.h"
 #include "tools/FileTools.h"
 #include "tools/ShellTool.h"
@@ -138,14 +139,16 @@ std::string convertToUtf8(const std::string& value, ConsoleEncoding) {
 
 }  // namespace
 
-int main() {
+int main(int argc, char* argv[]) {
     using cpp_ai_agent::config::loadAppConfig;
     using cpp_ai_agent::core::Role;
     using cpp_ai_agent::core::Session;
     using cpp_ai_agent::llm::LlmClient;
     using cpp_ai_agent::security::PermissionManager;
     using cpp_ai_agent::security::PermissionRequest;
+    using cpp_ai_agent::storage::listHistoryFiles;
     using cpp_ai_agent::storage::JsonLogger;
+    using cpp_ai_agent::storage::replayHistoryFile;
     using cpp_ai_agent::tools::EditFileTool;
     using cpp_ai_agent::tools::ReadFileTool;
     using cpp_ai_agent::tools::ShellTool;
@@ -159,6 +162,36 @@ int main() {
 
     try {
         const auto appConfig = loadAppConfig("config/settings.json");
+
+        if (argc >= 2) {
+            const std::string command = argv[1];
+            if (command == "/history") {
+                const auto files = listHistoryFiles(std::filesystem::path(appConfig.historyDir));
+                if (files.empty()) {
+                    std::cout << "history> no logs found in " << appConfig.historyDir << "\n";
+                    return 0;
+                }
+
+                for (const auto& file : files) {
+                    std::cout << file.modifiedTime << "  " << file.size << " bytes  "
+                              << file.path.string() << "\n";
+                }
+                return 0;
+            }
+
+            if (command == "/replay") {
+                if (argc < 3) {
+                    std::cout << "usage> ai-agent.exe /replay logs\\session-*.jsonl\n";
+                    return 1;
+                }
+
+                for (const auto& line : replayHistoryFile(std::filesystem::path(argv[2]))) {
+                    std::cout << line << "\n";
+                }
+                return 0;
+            }
+        }
+
         LlmClient llm(appConfig.llm);
         ToolRegistry tools;
         tools.registerTool(std::make_shared<ReadFileTool>(std::filesystem::path(appConfig.workspaceRoot)));

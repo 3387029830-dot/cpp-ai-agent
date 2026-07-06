@@ -6,7 +6,7 @@
 
 ## 当前状态
 
-当前处于 M4 阶段：项目骨架已建立，CMake + vcpkg 可以配置、安装依赖、编译运行；M1 已完成 OpenAI 兼容格式 API 的真实对话验证，M2 已完成本地工具系统第一版，M3 已接入 Agent 主循环，M4 已完成权限确认和 JSON 日志第一版。
+当前处于 M4 阶段：项目骨架已建立，CMake + vcpkg 可以配置、安装依赖、编译运行；M1 已完成 OpenAI 兼容格式 API 的真实对话验证，M2 已完成本地工具系统第一版，M3 已接入 Agent 主循环，M4 已完成权限确认、JSON 日志和历史回放第一版。
 
 ## 快速开始
 
@@ -48,6 +48,13 @@ $env:OPENAI_API_KEY="你的 API Key"
 ```
 
 程序读取配置的优先级为：系统环境变量 > `.env` > `config/settings.json`。
+
+查看和回放历史：
+
+```powershell
+.\build\msvc-vcpkg-debug\ai-agent.exe /history
+.\build\msvc-vcpkg-debug\ai-agent.exe /replay logs\session-20260706-154848.jsonl
+```
 
 ## 核心目标
 
@@ -141,7 +148,7 @@ cpp-ai-agent/
 | M1 | 接入大模型 API，实现基础对话 |
 | M2 | 实现工具接口、工具注册表、文件和命令工具 |
 | M3 | 实现 Agent 主循环，支持模型自主调用 `read_file` 并回填结果 |
-| M4 | 加入权限控制、日志记录，历史回放待完善 |
+| M4 | 加入权限控制、日志记录和历史回放 |
 | M5 | 完善 TUI、搜索、Skill、MCP 演示和测试 |
 
 ## 说明
