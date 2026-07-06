@@ -97,6 +97,19 @@ $env:OPENAI_API_KEY="你的 API Key"
 .\build\msvc-vcpkg-debug\ai-agent.exe /replay logs\session-20260706-154848.jsonl
 ```
 
+诊断当前配置：
+
+```powershell
+.\build\msvc-vcpkg-debug\ai-agent.exe /config
+.\build\msvc-vcpkg-debug\ai-agent.exe /doctor
+```
+
+`/config` 不会显示真实 API Key，只会显示是否已设置。若 `/doctor` 显示 `OPENAI_MODEL` 仍是旧值，说明系统环境变量覆盖了 `.env`；可在当前 PowerShell 临时修正：
+
+```powershell
+$env:OPENAI_MODEL="gpt-5.4-mini"
+```
+
 ## 核心目标
 
 - 建立完整 Agent 主循环：输入、模型决策、工具调用、结果回填、多轮执行。

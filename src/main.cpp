@@ -2,6 +2,7 @@
 #include "config/AppConfig.h"
 #include "core/Message.h"
 #include "core/Session.h"
+#include "diagnostics/Diagnostics.h"
 #include "llm/LlmClient.h"
 #include "security/PermissionManager.h"
 #include "storage/HistoryReader.h"
@@ -143,6 +144,9 @@ int main(int argc, char* argv[]) {
     using cpp_ai_agent::config::loadAppConfig;
     using cpp_ai_agent::core::Role;
     using cpp_ai_agent::core::Session;
+    using cpp_ai_agent::diagnostics::formatConfigSummary;
+    using cpp_ai_agent::diagnostics::formatDiagnostics;
+    using cpp_ai_agent::diagnostics::runLocalDiagnostics;
     using cpp_ai_agent::llm::LlmClient;
     using cpp_ai_agent::security::PermissionManager;
     using cpp_ai_agent::security::PermissionRequest;
@@ -157,7 +161,7 @@ int main(int argc, char* argv[]) {
 
     const auto consoleEncoding = configureConsoleEncoding();
 
-    std::cout << "cpp-ai-agent M4 is running.\n";
+    std::cout << "cpp-ai-agent M5 is running.\n";
     std::cout << "Type a message and press Enter. Type /exit to quit.\n\n";
 
     try {
@@ -175,6 +179,20 @@ int main(int argc, char* argv[]) {
                 for (const auto& file : files) {
                     std::cout << file.modifiedTime << "  " << file.size << " bytes  "
                               << file.path.string() << "\n";
+                }
+                return 0;
+            }
+
+            if (command == "/config") {
+                for (const auto& line : formatConfigSummary(appConfig)) {
+                    std::cout << line << "\n";
+                }
+                return 0;
+            }
+
+            if (command == "/doctor") {
+                for (const auto& line : formatDiagnostics(runLocalDiagnostics(appConfig))) {
+                    std::cout << line << "\n";
                 }
                 return 0;
             }

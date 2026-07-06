@@ -21,6 +21,7 @@ add_executable(ai-agent
     src/config/AppConfig.cpp
     src/core/Message.cpp
     src/core/Session.cpp
+    src/diagnostics/Diagnostics.cpp
     src/llm/LlmClient.cpp
     src/security/PermissionManager.cpp
     src/storage/HistoryReader.cpp
@@ -49,6 +50,7 @@ endif()
 
 add_executable(ai-agent-tests
     src/config/AppConfig.cpp
+    src/diagnostics/Diagnostics.cpp
     src/security/PermissionManager.cpp
     src/storage/HistoryReader.cpp
     src/storage/JsonLogger.cpp
@@ -57,6 +59,7 @@ add_executable(ai-agent-tests
     src/tools/ShellTool.cpp
     src/tools/ToolRegistry.cpp
     tests/config_tests.cpp
+    tests/diagnostics_tests.cpp
     tests/history_tests.cpp
     tests/security_tests.cpp
     tests/tools_tests.cpp
