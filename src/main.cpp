@@ -1,10 +1,15 @@
+#include "agent/AgentLoop.h"
 #include "config/AppConfig.h"
 #include "core/Message.h"
 #include "core/Session.h"
 #include "llm/LlmClient.h"
+#include "tools/FileTools.h"
+#include "tools/ToolRegistry.h"
 
 #include <exception>
+#include <filesystem>
 #include <iostream>
+#include <memory>
 #include <string>
 #include <utility>
 
@@ -135,20 +140,44 @@ int main() {
     using cpp_ai_agent::core::Role;
     using cpp_ai_agent::core::Session;
     using cpp_ai_agent::llm::LlmClient;
+    using cpp_ai_agent::tools::ReadFileTool;
+    using cpp_ai_agent::tools::ToolRegistry;
 
     const auto consoleEncoding = configureConsoleEncoding();
 
-    std::cout << "cpp-ai-agent M1 is running.\n";
+    std::cout << "cpp-ai-agent M3 is running.\n";
     std::cout << "Type a message and press Enter. Type /exit to quit.\n\n";
 
     try {
         const auto appConfig = loadAppConfig("config/settings.json");
         LlmClient llm(appConfig.llm);
+        ToolRegistry tools;
+        tools.registerTool(std::make_shared<ReadFileTool>(std::filesystem::path(appConfig.workspaceRoot)));
+
+        cpp_ai_agent::agent::AgentLoop agentLoop(
+            llm,
+            tools,
+            appConfig.maxIterations,
+            [](const cpp_ai_agent::agent::AgentEvent& event) {
+                using cpp_ai_agent::agent::AgentEventType;
+
+                if (event.type == AgentEventType::ToolCall) {
+                    std::cout << "tool_call> " << event.title << " " << event.detail << "\n";
+                } else if (event.type == AgentEventType::ToolResult) {
+                    std::cout << "tool_result> " << event.title << ": " << event.detail << "\n";
+                } else if (event.type == AgentEventType::Warning) {
+                    std::cout << "warning> " << event.detail << "\n";
+                }
+            }
+        );
+
         Session session("default");
 
         session.addMessage(makeMessage(
             Role::System,
-            "You are cpp-ai-agent, a concise AI coding assistant running in a C++ terminal app."
+            "You are cpp-ai-agent, a concise AI coding assistant running in a C++ terminal app. "
+            "When the user asks you to inspect, read, or summarize a local project file, use the "
+            "read_file tool instead of guessing."
         ));
 
         std::string input;
@@ -172,8 +201,7 @@ int main() {
             session.addMessage(makeMessage(Role::User, input));
 
             try {
-                const auto reply = llm.chat(session.messages());
-                session.addMessage(reply);
+                const auto reply = agentLoop.runTurn(session);
                 std::cout << "assistant> " << reply.content << "\n";
             } catch (const std::exception& ex) {
                 std::cout << "error> " << ex.what() << "\n";

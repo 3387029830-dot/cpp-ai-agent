@@ -17,6 +17,7 @@ find_package(cpr CONFIG REQUIRED)
 find_package(doctest CONFIG REQUIRED)
 
 add_executable(ai-agent
+    src/agent/AgentLoop.cpp
     src/config/AppConfig.cpp
     src/core/Message.cpp
     src/core/Session.cpp

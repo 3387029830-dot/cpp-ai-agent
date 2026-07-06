@@ -25,13 +25,57 @@ nlohmann::json toApiMessages(const std::vector<core::Message>& messages) {
     nlohmann::json apiMessages = nlohmann::json::array();
 
     for (const auto& message : messages) {
-        apiMessages.push_back({
+        nlohmann::json apiMessage = {
             {"role", core::roleToApiString(message.role)},
             {"content", message.content},
-        });
+        };
+
+        if (!message.toolCalls.empty()) {
+            nlohmann::json toolCalls = nlohmann::json::array();
+            for (const auto& toolCall : message.toolCalls) {
+                toolCalls.push_back({
+                    {"id", toolCall.id},
+                    {"type", "function"},
+                    {"function",
+                     {
+                         {"name", toolCall.name},
+                         {"arguments", toolCall.arguments},
+                     }},
+                });
+            }
+            apiMessage["tool_calls"] = toolCalls;
+        }
+
+        if (message.role == core::Role::Tool) {
+            apiMessage["tool_call_id"] = message.toolCallId;
+        }
+
+        apiMessages.push_back(std::move(apiMessage));
     }
 
     return apiMessages;
+}
+
+std::vector<core::ToolCall> parseToolCalls(const nlohmann::json& apiMessage) {
+    std::vector<core::ToolCall> toolCalls;
+    if (!apiMessage.contains("tool_calls") || !apiMessage.at("tool_calls").is_array()) {
+        return toolCalls;
+    }
+
+    for (const auto& rawToolCall : apiMessage.at("tool_calls")) {
+        core::ToolCall toolCall;
+        toolCall.id = rawToolCall.value("id", "");
+
+        const auto function = rawToolCall.value("function", nlohmann::json::object());
+        toolCall.name = function.value("name", "");
+        toolCall.arguments = function.value("arguments", "{}");
+
+        if (!toolCall.name.empty()) {
+            toolCalls.push_back(std::move(toolCall));
+        }
+    }
+
+    return toolCalls;
 }
 
 std::string redactSensitiveText(const std::string& text) {
@@ -53,11 +97,23 @@ LlmClient::LlmClient(LlmConfig config) : config_(std::move(config)) {
 }
 
 core::Message LlmClient::chat(const std::vector<core::Message>& messages) const {
+    return chat(messages, nlohmann::json::array());
+}
+
+core::Message LlmClient::chat(
+    const std::vector<core::Message>& messages,
+    const nlohmann::json& toolsSpec
+) const {
     const auto url = trimTrailingSlash(config_.baseUrl) + "/chat/completions";
-    const nlohmann::json requestBody = {
+    nlohmann::json requestBody = {
         {"model", config_.model},
         {"messages", toApiMessages(messages)},
     };
+
+    if (!toolsSpec.empty()) {
+        requestBody["tools"] = toolsSpec;
+        requestBody["tool_choice"] = "auto";
+    }
 
     cpr::Session session;
     session.SetUrl(cpr::Url{url});
@@ -93,11 +149,16 @@ core::Message LlmClient::chat(const std::vector<core::Message>& messages) const 
     }
 
     const auto body = nlohmann::json::parse(response.text);
-    const auto content = body.at("choices").at(0).at("message").value("content", "");
+    const auto apiMessage = body.at("choices").at(0).at("message");
+    std::string content;
+    if (apiMessage.contains("content") && apiMessage.at("content").is_string()) {
+        content = apiMessage.at("content").get<std::string>();
+    }
 
     core::Message assistant;
     assistant.role = core::Role::Assistant;
     assistant.content = content;
+    assistant.toolCalls = parseToolCalls(apiMessage);
     return assistant;
 }
 

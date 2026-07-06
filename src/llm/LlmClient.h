@@ -2,6 +2,8 @@
 
 #include "core/Message.h"
 
+#include <nlohmann/json_fwd.hpp>
+
 #include <string>
 #include <vector>
 
@@ -19,6 +21,10 @@ public:
     explicit LlmClient(LlmConfig config);
 
     core::Message chat(const std::vector<core::Message>& messages) const;
+    core::Message chat(
+        const std::vector<core::Message>& messages,
+        const nlohmann::json& toolsSpec
+    ) const;
 
 private:
     LlmConfig config_;
