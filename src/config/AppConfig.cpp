@@ -132,6 +132,13 @@ std::string getConfigValue(
     return fallback;
 }
 
+std::string normalizeModelName(std::string model) {
+    if (model == "gpt-5.4.-mini") {
+        return "gpt-5.4-mini";
+    }
+    return model;
+}
+
 }  // namespace
 
 AppConfig loadAppConfig(const std::string& path) {
@@ -152,7 +159,9 @@ AppConfig loadAppConfig(const std::string& path) {
         "OPENAI_BASE_URL",
         llm.value("base_url", "https://api.openai.com/v1")
     );
-    config.llm.model = getConfigValue(dotEnv, "OPENAI_MODEL", llm.value("model", "gpt-4.1-mini"));
+    config.llm.model = normalizeModelName(
+        getConfigValue(dotEnv, "OPENAI_MODEL", llm.value("model", "gpt-4.1-mini"))
+    );
     config.llm.proxyUrl = getConfigValue(dotEnv, "OPENAI_PROXY_URL", llm.value("proxy_url", ""));
 
     const auto apiKeyEnv = llm.value("api_key_env", "OPENAI_API_KEY");
