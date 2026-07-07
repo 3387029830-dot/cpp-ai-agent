@@ -26,6 +26,7 @@ add_executable(ai-agent
     src/diagnostics/Diagnostics.cpp
     src/llm/LlmClient.cpp
     src/llm/LlmParsing.cpp
+    src/mcp/McpClient.cpp
     src/security/PermissionManager.cpp
     src/storage/HistoryReader.cpp
     src/storage/JsonLogger.cpp
@@ -63,6 +64,7 @@ add_executable(ai-agent-tests
     src/core/Session.cpp
     src/diagnostics/Diagnostics.cpp
     src/llm/LlmParsing.cpp
+    src/mcp/McpClient.cpp
     src/security/PermissionManager.cpp
     src/storage/HistoryReader.cpp
     src/storage/JsonLogger.cpp
@@ -76,6 +78,7 @@ add_executable(ai-agent-tests
     tests/context_manager_tests.cpp
     tests/history_tests.cpp
     tests/llm_parsing_tests.cpp
+    tests/mcp_tests.cpp
     tests/security_tests.cpp
     tests/tools_tests.cpp
 )
