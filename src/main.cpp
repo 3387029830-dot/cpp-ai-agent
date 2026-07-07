@@ -301,6 +301,55 @@ void registerBuiltInMcpTools(
     }
 }
 
+void registerConfiguredMcpTools(
+    cpp_ai_agent::tools::ToolRegistry& tools,
+    const std::filesystem::path& configPath
+) {
+    if (!std::filesystem::exists(configPath)) {
+        return;
+    }
+
+    std::ifstream input(configPath);
+    if (!input) {
+        std::cout << "warning> failed to open " << configPath.string() << "\n";
+        return;
+    }
+
+    const auto config = nlohmann::json::parse(input);
+    for (const auto& server : config.value("servers", nlohmann::json::array())) {
+        if (!server.value("enabled", false)) {
+            continue;
+        }
+
+        const auto serverName = server.value("name", "");
+        const auto command = server.value("command", "");
+        if (serverName.empty() || command.empty()) {
+            std::cout << "warning> skipped MCP server with missing name or command\n";
+            continue;
+        }
+
+        std::vector<std::string> mcpCommand = {command};
+        for (const auto& arg : server.value("args", nlohmann::json::array())) {
+            mcpCommand.push_back(arg.get<std::string>());
+        }
+
+        try {
+            cpp_ai_agent::mcp::StdioMcpClient client(mcpCommand);
+            const auto info = client.discoverTools();
+            for (const auto& tool : info.tools) {
+                tools.registerTool(std::make_shared<cpp_ai_agent::mcp::McpToolAdapter>(
+                    mcpCommand,
+                    cpp_ai_agent::mcp::makeMcpToolName(serverName, tool.name),
+                    tool
+                ));
+            }
+            std::cout << "mcp> registered " << info.tools.size() << " tools from " << serverName << "\n";
+        } catch (const std::exception& ex) {
+            std::cout << "warning> MCP server '" << serverName << "' unavailable: " << ex.what() << "\n";
+        }
+    }
+}
+
 int runMcpTestServer() {
     std::string line;
     while (std::getline(std::cin, line)) {
@@ -544,6 +593,7 @@ int main(int argc, char* argv[]) {
         tools.registerTool(std::make_shared<EditFileTool>(std::filesystem::path(appConfig.workspaceRoot)));
         tools.registerTool(std::make_shared<ShellTool>());
         registerBuiltInMcpTools(tools, argv[0]);
+        registerConfiguredMcpTools(tools, "config/mcp_servers.json");
 
         PermissionManager permissions(
             appConfig.permissionMode,

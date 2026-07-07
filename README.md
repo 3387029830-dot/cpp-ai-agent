@@ -97,6 +97,25 @@ copy examples\env.deepseek.example .env
 
 生成后打开 `.env`，把占位 API Key 换成真实 Key。
 
+可选：启用外部 stdio MCP server。
+
+编辑 `config/mcp_servers.json`，把对应 server 的 `enabled` 改为 `true`。程序启动时会自动连接启用的 server，发现工具，并注册成 `mcp_<server>_<tool>` 形式供模型调用。
+
+示例：
+
+```json
+{
+  "servers": [
+    {
+      "name": "filesystem",
+      "enabled": true,
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]
+    }
+  ]
+}
+```
+
 ### 3. 构建和运行
 
 构建并运行：
@@ -184,6 +203,7 @@ $env:OPENAI_MODEL="gpt-5.4-mini"
 - 提供插件式工具系统，支持文件工具、命令工具、搜索工具等扩展。
 - 接入 OpenAI 兼容格式的大模型 API。
 - 提供最小 MCP stdio 客户端，支持初始化、工具列表发现和基础工具调用；内置 MCP 工具会注册进 AgentLoop，可由模型自动调用。
+- 可从 `config/mcp_servers.json` 读取外部 stdio MCP server，自动发现并注册工具。
 - 加入权限确认，避免模型直接执行高风险操作。
 - 记录执行日志，支持历史回放和答辩演示。
 - 使用 ANSI 增强的流式控制台展示对话、工具调用、权限确认、状态和结果。
@@ -244,6 +264,7 @@ cpp-ai-agent/
 | `vcpkg.json` | vcpkg 依赖清单，声明第三方库 |
 | `.env.example` | 环境变量样例，不存放真实密钥 |
 | `.env` | 本地真实环境变量文件，不提交到 Git |
+| `config/mcp_servers.json` | 外部 stdio MCP server 配置，默认示例为禁用状态 |
 | `.clang-format` | C++ 代码格式化规则 |
 | `config/` | 程序运行配置 |
 | `docs/` | 项目文档 |

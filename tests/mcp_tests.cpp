@@ -6,12 +6,18 @@
 #include <nlohmann/json.hpp>
 
 using cpp_ai_agent::mcp::makeInitializeRequest;
+using cpp_ai_agent::mcp::makeMcpToolName;
 using cpp_ai_agent::mcp::makeInitializedNotification;
 using cpp_ai_agent::mcp::makeToolsCallRequest;
 using cpp_ai_agent::mcp::makeToolsListRequest;
 using cpp_ai_agent::mcp::parseInitializeResult;
 using cpp_ai_agent::mcp::parseToolsCallResult;
 using cpp_ai_agent::mcp::parseToolsListResult;
+
+TEST_CASE("McpToolAdapter builds safe exposed tool names") {
+    CHECK(makeMcpToolName("file-system", "read.file") == "mcp_file_system_read_file");
+    CHECK(makeMcpToolName("GitHub", "create_issue") == "mcp_github_create_issue");
+}
 
 TEST_CASE("McpToolAdapter exposes MCP metadata as a local tool") {
     cpp_ai_agent::mcp::McpTool mcpTool;

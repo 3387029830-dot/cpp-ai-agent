@@ -8,6 +8,8 @@
 
 namespace cpp_ai_agent::mcp {
 
+std::string makeMcpToolName(const std::string& serverName, const std::string& toolName);
+
 class McpToolAdapter final : public tools::ITool {
 public:
     McpToolAdapter(

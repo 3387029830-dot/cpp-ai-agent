@@ -1,9 +1,35 @@
 #include "mcp/McpToolAdapter.h"
 
+#include <cctype>
 #include <exception>
 #include <utility>
 
 namespace cpp_ai_agent::mcp {
+
+std::string makeMcpToolName(const std::string& serverName, const std::string& toolName) {
+    auto appendSanitized = [](std::string& output, const std::string& value) {
+        for (const unsigned char ch : value) {
+            if (std::isalnum(ch) != 0 || ch == '_') {
+                output.push_back(static_cast<char>(std::tolower(ch)));
+            } else {
+                output.push_back('_');
+            }
+        }
+    };
+
+    std::string result = "mcp_";
+    appendSanitized(result, serverName);
+    result.push_back('_');
+    appendSanitized(result, toolName);
+
+    while (result.find("__") != std::string::npos) {
+        result.replace(result.find("__"), 2, "_");
+    }
+    if (!result.empty() && result.back() == '_') {
+        result.pop_back();
+    }
+    return result;
+}
 
 McpToolAdapter::McpToolAdapter(
     std::vector<std::string> command,
