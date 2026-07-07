@@ -27,6 +27,7 @@ add_executable(ai-agent
     src/llm/LlmClient.cpp
     src/llm/LlmParsing.cpp
     src/mcp/McpClient.cpp
+    src/mcp/McpToolAdapter.cpp
     src/security/PermissionManager.cpp
     src/storage/HistoryReader.cpp
     src/storage/JsonLogger.cpp
@@ -65,6 +66,7 @@ add_executable(ai-agent-tests
     src/diagnostics/Diagnostics.cpp
     src/llm/LlmParsing.cpp
     src/mcp/McpClient.cpp
+    src/mcp/McpToolAdapter.cpp
     src/security/PermissionManager.cpp
     src/storage/HistoryReader.cpp
     src/storage/JsonLogger.cpp

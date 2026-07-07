@@ -5,6 +5,7 @@
 #include "diagnostics/Diagnostics.h"
 #include "llm/LlmClient.h"
 #include "mcp/McpClient.h"
+#include "mcp/McpToolAdapter.h"
 #include "security/PermissionManager.h"
 #include "storage/HistoryReader.h"
 #include "storage/JsonLogger.h"
@@ -283,6 +284,23 @@ void printMcpCallDemo(const std::string& executablePath) {
     std::cout << "mcp-call-demo> this is a real tools/call round trip\n";
 }
 
+void registerBuiltInMcpTools(
+    cpp_ai_agent::tools::ToolRegistry& tools,
+    const std::string& executablePath
+) {
+    const std::vector<std::string> command = {executablePath, "/mcp-test-server"};
+    cpp_ai_agent::mcp::StdioMcpClient client(command);
+    const auto info = client.discoverTools();
+
+    for (const auto& tool : info.tools) {
+        tools.registerTool(std::make_shared<cpp_ai_agent::mcp::McpToolAdapter>(
+            command,
+            "mcp_" + tool.name,
+            tool
+        ));
+    }
+}
+
 int runMcpTestServer() {
     std::string line;
     while (std::getline(std::cin, line)) {
@@ -525,6 +543,7 @@ int main(int argc, char* argv[]) {
         tools.registerTool(std::make_shared<WriteFileTool>(std::filesystem::path(appConfig.workspaceRoot)));
         tools.registerTool(std::make_shared<EditFileTool>(std::filesystem::path(appConfig.workspaceRoot)));
         tools.registerTool(std::make_shared<ShellTool>());
+        registerBuiltInMcpTools(tools, argv[0]);
 
         PermissionManager permissions(
             appConfig.permissionMode,

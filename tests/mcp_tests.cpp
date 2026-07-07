@@ -1,6 +1,7 @@
 #include <doctest/doctest.h>
 
 #include "mcp/McpClient.h"
+#include "mcp/McpToolAdapter.h"
 
 #include <nlohmann/json.hpp>
 
@@ -11,6 +12,23 @@ using cpp_ai_agent::mcp::makeToolsListRequest;
 using cpp_ai_agent::mcp::parseInitializeResult;
 using cpp_ai_agent::mcp::parseToolsCallResult;
 using cpp_ai_agent::mcp::parseToolsListResult;
+
+TEST_CASE("McpToolAdapter exposes MCP metadata as a local tool") {
+    cpp_ai_agent::mcp::McpTool mcpTool;
+    mcpTool.name = "echo";
+    mcpTool.description = "Echo text.";
+    mcpTool.inputSchema = {
+        {"type", "object"},
+        {"properties", {{"text", {{"type", "string"}}}}},
+    };
+
+    cpp_ai_agent::mcp::McpToolAdapter adapter({"ai-agent.exe", "/mcp-test-server"}, "mcp_echo", mcpTool);
+
+    CHECK(adapter.name() == "mcp_echo");
+    CHECK(adapter.description().find("[MCP]") == 0);
+    CHECK(adapter.parametersSchema().at("properties").contains("text"));
+    CHECK(adapter.risk() == cpp_ai_agent::tools::RiskLevel::Safe);
+}
 
 TEST_CASE("McpClient builds initialize, tools/list, and tools/call requests") {
     const auto initialize = makeInitializeRequest(1);

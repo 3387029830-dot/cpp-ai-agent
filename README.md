@@ -8,7 +8,7 @@
 
 当前版本：v0.1.0。项目已完成 M0-M5 演示版闭环：CMake + vcpkg 构建、OpenAI 兼容 API 对话、工具调用、权限确认、JSONL 日志、历史回放、配置诊断、ANSI 增强流式控制台界面和答辩材料。
 
-在 v0.1.0 交付版之后，本地增强了 AgentLoop 的可测试性和终端呈现：新增 `ContextManager` 上下文窗口、可注入的 `ILlmClient` 接口、独立 `tool_calls` 解析测试、Agent 主循环 mock LLM 自动化测试，以及 `src/ui/Console.*` 流式控制台呈现模块。
+在 v0.1.0 交付版之后，本地增强了 AgentLoop 的可测试性、终端呈现和 MCP 集成：新增 `ContextManager` 上下文窗口、可注入的 `ILlmClient` 接口、独立 `tool_calls` 解析测试、Agent 主循环 mock LLM 自动化测试、`src/ui/Console.*` 流式控制台呈现模块，以及可由模型自动调用的内置 MCP 工具。
 
 ## 快速开始
 
@@ -183,7 +183,7 @@ $env:OPENAI_MODEL="gpt-5.4-mini"
 - 通过 `ContextManager` 保留 system prompt 并限制发送给模型的上下文窗口。
 - 提供插件式工具系统，支持文件工具、命令工具、搜索工具等扩展。
 - 接入 OpenAI 兼容格式的大模型 API。
-- 提供最小 MCP stdio 客户端，支持初始化、工具列表发现和基础工具调用。
+- 提供最小 MCP stdio 客户端，支持初始化、工具列表发现和基础工具调用；内置 MCP 工具会注册进 AgentLoop，可由模型自动调用。
 - 加入权限确认，避免模型直接执行高风险操作。
 - 记录执行日志，支持历史回放和答辩演示。
 - 使用 ANSI 增强的流式控制台展示对话、工具调用、权限确认、状态和结果。
@@ -252,6 +252,7 @@ cpp-ai-agent/
 | `src/core/ContextManager.*` | 构建发送给模型的上下文窗口 |
 | `src/llm/LlmParsing.*` | 解析 OpenAI-compatible `tool_calls` 响应 |
 | `src/mcp/McpClient.*` | 最小 MCP stdio 客户端，负责初始化、工具列表发现和基础工具调用 |
+| `src/mcp/McpToolAdapter.*` | 将 MCP tool 包装成项目内 `ITool`，注册进 AgentLoop |
 | `src/security/` | 权限确认和危险命令拦截 |
 | `src/storage/` | JSONL 会话日志 |
 | `src/ui/Console.*` | ANSI 增强流式控制台呈现 |
