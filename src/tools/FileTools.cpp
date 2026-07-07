@@ -50,6 +50,61 @@ ToolResult failureResult(const std::exception& ex) {
     };
 }
 
+std::string truncatePreview(const std::string& value, std::size_t maxLength = 4000) {
+    if (value.size() <= maxLength) {
+        return value;
+    }
+    return value.substr(0, maxLength) + "\n... diff preview truncated ...";
+}
+
+std::string linePrefix(const std::string& prefix, const std::string& text) {
+    std::ostringstream output;
+    std::size_t start = 0;
+    while (start <= text.size()) {
+        const auto end = text.find('\n', start);
+        output << prefix << text.substr(start, end == std::string::npos ? std::string::npos : end - start) << "\n";
+        if (end == std::string::npos) {
+            break;
+        }
+        start = end + 1;
+    }
+    return output.str();
+}
+
+std::string makeReplacementDiff(
+    const std::filesystem::path& path,
+    const std::string& oldText,
+    const std::string& newText
+) {
+    std::ostringstream output;
+    output << "diff preview\n";
+    output << "--- " << path.string() << "\n";
+    output << "+++ " << path.string() << "\n";
+    output << "@@ replacement @@\n";
+    output << linePrefix("-", oldText);
+    output << linePrefix("+", newText);
+    return truncatePreview(output.str());
+}
+
+std::string makeWholeFileDiff(
+    const std::filesystem::path& path,
+    const std::string& oldContent,
+    const std::string& newContent
+) {
+    std::ostringstream output;
+    output << "diff preview\n";
+    output << "--- " << path.string() << "\n";
+    output << "+++ " << path.string() << "\n";
+    output << "@@ full file @@\n";
+    if (oldContent.empty()) {
+        output << "(new file)\n";
+    } else {
+        output << linePrefix("-", oldContent);
+    }
+    output << linePrefix("+", newContent);
+    return truncatePreview(output.str());
+}
+
 }  // namespace
 
 ReadFileTool::ReadFileTool(std::filesystem::path workspaceRoot)
@@ -118,6 +173,17 @@ RiskLevel WriteFileTool::risk() const {
     return RiskLevel::Write;
 }
 
+std::string WriteFileTool::preview(const nlohmann::json& args) const {
+    try {
+        const auto path = resolveWorkspacePath(workspaceRoot_, args.at("path").get<std::string>());
+        const auto newContent = args.at("content").get<std::string>();
+        const auto oldContent = std::filesystem::exists(path) ? readWholeFile(path) : "";
+        return makeWholeFileDiff(path, oldContent, newContent);
+    } catch (const std::exception& ex) {
+        return std::string("diff preview unavailable: ") + ex.what();
+    }
+}
+
 ToolResult WriteFileTool::execute(const nlohmann::json& args) const {
     try {
         const auto path = resolveWorkspacePath(workspaceRoot_, args.at("path").get<std::string>());
@@ -159,6 +225,24 @@ nlohmann::json EditFileTool::parametersSchema() const {
 
 RiskLevel EditFileTool::risk() const {
     return RiskLevel::Write;
+}
+
+std::string EditFileTool::preview(const nlohmann::json& args) const {
+    try {
+        const auto path = resolveWorkspacePath(workspaceRoot_, args.at("path").get<std::string>());
+        const auto content = readWholeFile(path);
+        const auto oldText = args.at("old_text").get<std::string>();
+        const auto newText = args.at("new_text").get<std::string>();
+        if (oldText.empty()) {
+            throw std::invalid_argument("old_text must not be empty.");
+        }
+        if (content.find(oldText) == std::string::npos) {
+            throw std::runtime_error("old_text was not found in file: " + path.string());
+        }
+        return makeReplacementDiff(path, oldText, newText);
+    } catch (const std::exception& ex) {
+        return std::string("diff preview unavailable: ") + ex.what();
+    }
 }
 
 ToolResult EditFileTool::execute(const nlohmann::json& args) const {

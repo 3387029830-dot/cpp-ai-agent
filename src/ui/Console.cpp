@@ -144,10 +144,20 @@ void Console::printToolResult(const std::string& name, const std::string& detail
     std::cout << color(gray) << "└ " << name << ": " << color(reset) << detail << "\n\n";
 }
 
-void Console::printPermissionPrompt(const std::string& toolName, const std::string& risk, const std::string& args) const {
+void Console::printPermissionPrompt(
+    const std::string& toolName,
+    const std::string& risk,
+    const std::string& args,
+    const std::string& preview
+) const {
     std::cout << "\n" << color(yellow) << "! permission required" << color(reset) << "\n";
     std::cout << "  tool: " << toolName << "  risk: " << risk << "\n";
     std::cout << "  args: " << args << "\n";
+    if (!preview.empty()) {
+        std::cout << color(gray);
+        printIndented(preview);
+        std::cout << color(reset);
+    }
     std::cout << color(yellow) << "  type yes to allow> " << color(reset);
 }
 
@@ -169,7 +179,7 @@ void Console::printUiOverview(
     std::cout << color(cyan) << "▸ Conversation" << color(reset) << "\n";
     std::cout << "  Streamed user and assistant turns appear here.\n\n";
     std::cout << color(blue) << "● Tools" << color(reset) << "\n";
-    std::cout << "  read_file safe | write_file confirm | edit_file confirm | run_command guarded\n\n";
+    std::cout << "  read_file safe | write_file diff+confirm | edit_file diff+confirm | run_command guarded\n\n";
     std::cout << color(gray) << "Status" << color(reset) << "\n";
     std::cout << "  API: " << stripScheme(baseUrl) << "\n";
     std::cout << "  History: " << historyDir << "\n\n";

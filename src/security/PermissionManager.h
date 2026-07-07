@@ -17,6 +17,7 @@ struct PermissionRequest {
     std::string toolName;
     tools::RiskLevel risk = tools::RiskLevel::Safe;
     std::string arguments;
+    std::string preview;
 };
 
 using PermissionPrompt = std::function<bool(const PermissionRequest&)>;

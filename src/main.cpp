@@ -601,7 +601,8 @@ int main(int argc, char* argv[]) {
                 console.printPermissionPrompt(
                     request.toolName,
                     cpp_ai_agent::security::riskLevelToString(request.risk),
-                    request.arguments
+                    request.arguments,
+                    request.preview
                 );
 
                 std::string answer;

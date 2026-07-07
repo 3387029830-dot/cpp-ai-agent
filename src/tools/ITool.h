@@ -26,6 +26,7 @@ public:
     virtual std::string description() const = 0;
     virtual nlohmann::json parametersSchema() const = 0;
     virtual RiskLevel risk() const = 0;
+    virtual std::string preview(const nlohmann::json& args) const;
     virtual ToolResult execute(const nlohmann::json& args) const = 0;
 };
 

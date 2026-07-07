@@ -32,6 +32,7 @@ add_executable(ai-agent
     src/storage/HistoryReader.cpp
     src/storage/JsonLogger.cpp
     src/tools/FileTools.cpp
+    src/tools/ITool.cpp
     src/tools/PathUtils.cpp
     src/tools/ShellTool.cpp
     src/tools/ToolRegistry.cpp
@@ -71,6 +72,7 @@ add_executable(ai-agent-tests
     src/storage/HistoryReader.cpp
     src/storage/JsonLogger.cpp
     src/tools/FileTools.cpp
+    src/tools/ITool.cpp
     src/tools/PathUtils.cpp
     src/tools/ShellTool.cpp
     src/tools/ToolRegistry.cpp

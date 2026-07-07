@@ -204,7 +204,7 @@ $env:OPENAI_MODEL="gpt-5.4-mini"
 - 接入 OpenAI 兼容格式的大模型 API。
 - 提供最小 MCP stdio 客户端，支持初始化、工具列表发现和基础工具调用；内置 MCP 工具会注册进 AgentLoop，可由模型自动调用。
 - 可从 `config/mcp_servers.json` 读取外部 stdio MCP server，自动发现并注册工具。
-- 加入权限确认，避免模型直接执行高风险操作。
+- 加入权限确认，避免模型直接执行高风险操作；写入和编辑文件前会显示 diff 预览再请求确认。
 - 记录执行日志，支持历史回放和答辩演示。
 - 使用 ANSI 增强的流式控制台展示对话、工具调用、权限确认、状态和结果。
 
@@ -274,7 +274,7 @@ cpp-ai-agent/
 | `src/llm/LlmParsing.*` | 解析 OpenAI-compatible `tool_calls` 响应 |
 | `src/mcp/McpClient.*` | 最小 MCP stdio 客户端，负责初始化、工具列表发现和基础工具调用 |
 | `src/mcp/McpToolAdapter.*` | 将 MCP tool 包装成项目内 `ITool`，注册进 AgentLoop |
-| `src/security/` | 权限确认和危险命令拦截 |
+| `src/security/` | 权限确认、diff 预览确认和危险命令拦截 |
 | `src/storage/` | JSONL 会话日志 |
 | `src/ui/Console.*` | ANSI 增强流式控制台呈现 |
 | `tests/` | 单元测试代码 |

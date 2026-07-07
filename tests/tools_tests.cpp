@@ -112,6 +112,15 @@ TEST_CASE("File tools read, write, and edit files inside workspace") {
     });
     REQUIRE(editResult.success);
 
+    const auto preview = editTool.preview({
+        {"path", "notes/example.txt"},
+        {"old_text", "agent"},
+        {"new_text", "assistant"},
+    });
+    CHECK(preview.find("diff preview") != std::string::npos);
+    CHECK(preview.find("-agent") != std::string::npos);
+    CHECK(preview.find("+assistant") != std::string::npos);
+
     const auto editedResult = readTool.execute({{"path", "notes/example.txt"}});
     REQUIRE(editedResult.success);
     CHECK(editedResult.output == "hello agent");
