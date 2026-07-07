@@ -4,6 +4,7 @@
 #include "tools/FileTools.h"
 #include "tools/PathUtils.h"
 #include "tools/ToolRegistry.h"
+#include "tools/WebSearchTool.h"
 
 #include <filesystem>
 #include <fstream>
@@ -152,4 +153,40 @@ TEST_CASE("File tools reject paths outside workspace") {
     CHECK(listResult.output.find("outside the workspace") != std::string::npos);
 
     std::filesystem::remove_all(root);
+}
+
+TEST_CASE("WebSearchTool formats structured search results") {
+    const nlohmann::json body = {
+        {"Heading", "C++"},
+        {"AbstractText", "C++ is a general-purpose programming language."},
+        {"AbstractURL", "https://example.test/cpp"},
+        {"RelatedTopics",
+         nlohmann::json::array({
+             {
+                 {"Text", "CMake - build system generator"},
+                 {"FirstURL", "https://example.test/cmake"},
+             },
+             {
+                 {"Name", "Nested"},
+                 {"Topics",
+                  nlohmann::json::array({
+                      {
+                          {"Text", "vcpkg - package manager"},
+                          {"FirstURL", "https://example.test/vcpkg"},
+                      },
+                  })},
+             },
+         })},
+    };
+
+    const auto formatted = cpp_ai_agent::tools::formatDuckDuckGoResults("cpp build", body, 2);
+
+    CHECK(formatted.find("Query: cpp build") != std::string::npos);
+    CHECK(formatted.find("Top answer") != std::string::npos);
+    CHECK(formatted.find("1. CMake - build system generator") != std::string::npos);
+    CHECK(formatted.find("2. vcpkg - package manager") != std::string::npos);
+    CHECK(formatted.find("整理建议") != std::string::npos);
+
+    const auto fallback = cpp_ai_agent::tools::formatDuckDuckGoResults("cpp agent + mcp", nlohmann::json::object(), 2);
+    CHECK(fallback.find("Search URL: https://duckduckgo.com/?q=cpp%20agent%20%2B%20mcp") != std::string::npos);
 }

@@ -153,6 +153,7 @@ cd ..\..
 ```powershell
 .\build\msvc-vcpkg-debug\ai-agent.exe /ui
 .\build\msvc-vcpkg-debug\ai-agent.exe /skills
+.\build\msvc-vcpkg-debug\ai-agent.exe /search cpp-ai-agent MCP stdio
 .\build\msvc-vcpkg-debug\ai-agent.exe /mcp-demo
 .\build\msvc-vcpkg-debug\ai-agent.exe /mcp-call-demo
 .\build\msvc-vcpkg-debug\ai-agent.exe /mcp-connect <command> [args...]
@@ -176,11 +177,18 @@ cd ..\..
 
 ```powershell
 .\build\msvc-vcpkg-debug\ai-agent.exe /ui
-.\build\msvc-vcpkg-debug\ai-agent.exe /search
+.\build\msvc-vcpkg-debug\ai-agent.exe /search cpp-ai-agent MCP stdio
 .\build\msvc-vcpkg-debug\ai-agent.exe /skills
 .\build\msvc-vcpkg-debug\ai-agent.exe /mcp-demo
 .\build\msvc-vcpkg-debug\ai-agent.exe /mcp-call-demo
 .\build\msvc-vcpkg-debug\ai-agent.exe /mcp-connect <command> [args...]
+```
+
+如果 `/search` 访问外网超时，可以在当前 PowerShell 里临时设置代理后再运行：
+
+```powershell
+$env:HTTPS_PROXY="http://127.0.0.1:7897"
+.\build\msvc-vcpkg-debug\ai-agent.exe /search cpp-ai-agent MCP stdio
 ```
 
 诊断当前配置：
@@ -215,6 +223,7 @@ $env:OPENAI_MODEL="gpt-5.4-mini"
 - 建立完整 Agent 主循环：输入、模型决策、工具调用、结果回填、多轮执行。
 - 通过 `ContextManager` 保留 system prompt 并限制发送给模型的上下文窗口。
 - 提供插件式工具系统，支持文件工具、命令工具、搜索工具等扩展。
+- 提供 `web_search` 安全工具和 `/search <query>` 命令，支持 Web 搜索、结构化结果整理和引用链接输出。
 - 接入 OpenAI 兼容格式的大模型 API。
 - 提供最小 MCP stdio 客户端，支持初始化、工具列表发现和基础工具调用；内置 MCP 工具会注册进 AgentLoop，可由模型自动调用。
 - 可从 `config/mcp_servers.json` 读取外部 stdio MCP server，自动发现并注册工具。
@@ -293,6 +302,7 @@ cpp-ai-agent/
 | `src/mcp/McpToolAdapter.*` | 将 MCP tool 包装成项目内 `ITool`，注册进 AgentLoop |
 | `src/security/` | 权限确认、diff 预览确认和危险命令拦截 |
 | `src/storage/` | JSONL 会话日志 |
+| `src/tools/WebSearchTool.*` | Web 搜索与检索结果整理工具 |
 | `src/ui/Console.*` | ANSI 增强流式控制台呈现 |
 | `tests/` | 单元测试代码 |
 | `build/` | 构建产物目录，不提交到 Git |

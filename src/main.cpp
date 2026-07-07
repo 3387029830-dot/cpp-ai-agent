@@ -13,6 +13,7 @@
 #include "tools/FileTools.h"
 #include "tools/ShellTool.h"
 #include "tools/ToolRegistry.h"
+#include "tools/WebSearchTool.h"
 #include "ui/Console.h"
 
 #include <algorithm>
@@ -233,9 +234,8 @@ void printDemoGuide() {
 }
 
 void printSearchPlaceholder() {
-    std::cout << "search> Web search is a planned M5 extension point.\n";
-    std::cout << "search> No search provider is configured in this demo build.\n";
-    std::cout << "search> Extension idea: add a SearchTool implementing ITool and register it in ToolRegistry.\n";
+    std::cout << "usage> ai-agent.exe /search <query>\n";
+    std::cout << "example> ai-agent.exe /search cpp-ai-agent MCP stdio\n";
 }
 
 void printSkills(const cpp_ai_agent::skills::SkillCatalog& catalog) {
@@ -488,6 +488,7 @@ int main(int argc, char* argv[]) {
     using cpp_ai_agent::tools::ReadFileTool;
     using cpp_ai_agent::tools::ShellTool;
     using cpp_ai_agent::tools::ToolRegistry;
+    using cpp_ai_agent::tools::WebSearchTool;
     using cpp_ai_agent::tools::WriteFileTool;
     using cpp_ai_agent::ui::Console;
     using cpp_ai_agent::ui::detectColorSupport;
@@ -532,7 +533,20 @@ int main(int argc, char* argv[]) {
             }
 
             if (command == "/search") {
-                printSearchPlaceholder();
+                if (argc < 3) {
+                    printSearchPlaceholder();
+                    return 1;
+                }
+                std::string query;
+                for (int i = 2; i < argc; ++i) {
+                    if (!query.empty()) {
+                        query.push_back(' ');
+                    }
+                    query += argv[i];
+                }
+                WebSearchTool searchTool(appConfig.llm.proxyUrl);
+                const auto result = searchTool.execute({{"query", query}, {"max_results", 5}});
+                std::cout << (result.success ? result.output : "search> " + result.output + "\n");
                 return 0;
             }
 
@@ -627,6 +641,7 @@ int main(int argc, char* argv[]) {
         tools.registerTool(std::make_shared<WriteFileTool>(std::filesystem::path(appConfig.workspaceRoot)));
         tools.registerTool(std::make_shared<EditFileTool>(std::filesystem::path(appConfig.workspaceRoot)));
         tools.registerTool(std::make_shared<ShellTool>());
+        tools.registerTool(std::make_shared<WebSearchTool>(appConfig.llm.proxyUrl));
         registerBuiltInMcpTools(tools, argv[0]);
         registerConfiguredMcpTools(tools, "config/mcp_servers.json");
 

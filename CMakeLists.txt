@@ -37,6 +37,7 @@ add_executable(ai-agent
     src/tools/PathUtils.cpp
     src/tools/ShellTool.cpp
     src/tools/ToolRegistry.cpp
+    src/tools/WebSearchTool.cpp
     src/ui/Console.cpp
     src/main.cpp
 )
@@ -78,6 +79,7 @@ add_executable(ai-agent-tests
     src/tools/PathUtils.cpp
     src/tools/ShellTool.cpp
     src/tools/ToolRegistry.cpp
+    src/tools/WebSearchTool.cpp
     tests/config_tests.cpp
     tests/diagnostics_tests.cpp
     tests/agent_loop_tests.cpp
@@ -95,6 +97,7 @@ target_include_directories(ai-agent-tests PRIVATE
 )
 
 target_link_libraries(ai-agent-tests PRIVATE
+    cpr::cpr
     doctest::doctest
     nlohmann_json::nlohmann_json
 )
@@ -102,7 +105,7 @@ target_link_libraries(ai-agent-tests PRIVATE
 add_test(NAME ai-agent-tests COMMAND ai-agent-tests)
 
 if(MSVC)
-    target_compile_options(ai-agent-tests PRIVATE /W4 /permissive-)
+    target_compile_options(ai-agent-tests PRIVATE /W4 /permissive- /utf-8)
 else()
     target_compile_options(ai-agent-tests PRIVATE -Wall -Wextra -Wpedantic)
 endif()
