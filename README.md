@@ -135,6 +135,7 @@ cd ..\..
 .\build\msvc-vcpkg-debug\ai-agent.exe /ui
 .\build\msvc-vcpkg-debug\ai-agent.exe /skills
 .\build\msvc-vcpkg-debug\ai-agent.exe /mcp-demo
+.\build\msvc-vcpkg-debug\ai-agent.exe /mcp-call-demo
 .\build\msvc-vcpkg-debug\ai-agent.exe /mcp-connect <command> [args...]
 .\build\msvc-vcpkg-debug\ai-agent.exe /history
 ```
@@ -159,6 +160,7 @@ cd ..\..
 .\build\msvc-vcpkg-debug\ai-agent.exe /search
 .\build\msvc-vcpkg-debug\ai-agent.exe /skills
 .\build\msvc-vcpkg-debug\ai-agent.exe /mcp-demo
+.\build\msvc-vcpkg-debug\ai-agent.exe /mcp-call-demo
 .\build\msvc-vcpkg-debug\ai-agent.exe /mcp-connect <command> [args...]
 ```
 
@@ -181,7 +183,7 @@ $env:OPENAI_MODEL="gpt-5.4-mini"
 - 通过 `ContextManager` 保留 system prompt 并限制发送给模型的上下文窗口。
 - 提供插件式工具系统，支持文件工具、命令工具、搜索工具等扩展。
 - 接入 OpenAI 兼容格式的大模型 API。
-- 提供最小 MCP stdio 客户端，支持初始化和工具列表发现。
+- 提供最小 MCP stdio 客户端，支持初始化、工具列表发现和基础工具调用。
 - 加入权限确认，避免模型直接执行高风险操作。
 - 记录执行日志，支持历史回放和答辩演示。
 - 使用 ANSI 增强的流式控制台展示对话、工具调用、权限确认、状态和结果。
@@ -249,7 +251,7 @@ cpp-ai-agent/
 | `src/agent/` | Agent 主循环，负责模型工具调用和结果回填 |
 | `src/core/ContextManager.*` | 构建发送给模型的上下文窗口 |
 | `src/llm/LlmParsing.*` | 解析 OpenAI-compatible `tool_calls` 响应 |
-| `src/mcp/McpClient.*` | 最小 MCP stdio 客户端，负责初始化和工具列表发现 |
+| `src/mcp/McpClient.*` | 最小 MCP stdio 客户端，负责初始化、工具列表发现和基础工具调用 |
 | `src/security/` | 权限确认和危险命令拦截 |
 | `src/storage/` | JSONL 会话日志 |
 | `src/ui/Console.*` | ANSI 增强流式控制台呈现 |

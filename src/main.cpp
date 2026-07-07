@@ -272,6 +272,17 @@ void printMcpDemo(const std::string& executablePath) {
     std::cout << "mcp-demo> use /mcp-connect <command> [args...] to inspect an external stdio MCP server\n";
 }
 
+void printMcpCallDemo(const std::string& executablePath) {
+    std::cout << "mcp-call-demo> starting built-in stdio MCP test server\n";
+    cpp_ai_agent::mcp::StdioMcpClient client({executablePath, "/mcp-test-server"});
+    const auto echo = client.callTool("echo", {{"text", "hello from cpp-ai-agent"}});
+    std::cout << "mcp-call-demo> echo => " << echo.text << "\n";
+
+    const auto projectInfo = client.callTool("project_info", nlohmann::json::object());
+    std::cout << "mcp-call-demo> project_info => " << projectInfo.text << "\n";
+    std::cout << "mcp-call-demo> this is a real tools/call round trip\n";
+}
+
 int runMcpTestServer() {
     std::string line;
     while (std::getline(std::cin, line)) {
@@ -323,6 +334,32 @@ int runMcpTestServer() {
                               {"inputSchema", {{"type", "object"}, {"properties", nlohmann::json::object()}}},
                           },
                       })},
+                 }},
+            };
+            std::cout << response.dump() << std::endl;
+        } else if (method == "tools/call") {
+            const auto params = request.value("params", nlohmann::json::object());
+            const auto toolName = params.value("name", "");
+            const auto arguments = params.value("arguments", nlohmann::json::object());
+
+            std::string text;
+            bool isError = false;
+            if (toolName == "echo") {
+                text = arguments.value("text", "");
+            } else if (toolName == "project_info") {
+                text = "cpp-ai-agent: C++17 terminal AI coding agent with local tools and MCP demo support.";
+            } else {
+                isError = true;
+                text = "Unknown tool: " + toolName;
+            }
+
+            nlohmann::json response = {
+                {"jsonrpc", "2.0"},
+                {"id", id},
+                {"result",
+                 {
+                     {"content", nlohmann::json::array({{{"type", "text"}, {"text", text}}})},
+                     {"isError", isError},
                  }},
             };
             std::cout << response.dump() << std::endl;
@@ -415,6 +452,11 @@ int main(int argc, char* argv[]) {
                 return 0;
             }
 
+            if (command == "/mcp-call-demo") {
+                printMcpCallDemo(argv[0]);
+                return 0;
+            }
+
             if (command == "/mcp-connect") {
                 if (argc < 3) {
                     std::cout << "usage> ai-agent.exe /mcp-connect <command> [args...]\n";
@@ -437,6 +479,7 @@ int main(int argc, char* argv[]) {
 
             if (command == "/mcp") {
                 std::cout << "usage> ai-agent.exe /mcp-demo\n";
+                std::cout << "usage> ai-agent.exe /mcp-call-demo\n";
                 std::cout << "usage> ai-agent.exe /mcp-connect <command> [args...]\n";
                 return 0;
             }

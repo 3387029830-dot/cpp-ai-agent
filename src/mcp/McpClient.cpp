@@ -250,6 +250,15 @@ nlohmann::json makeToolsListRequest(int id) {
     };
 }
 
+nlohmann::json makeToolsCallRequest(int id, const std::string& name, const nlohmann::json& arguments) {
+    return {
+        {"jsonrpc", "2.0"},
+        {"id", id},
+        {"method", "tools/call"},
+        {"params", {{"name", name}, {"arguments", arguments}}},
+    };
+}
+
 McpServerInfo parseInitializeResult(const nlohmann::json& response) {
     ensureJsonRpcResponse(response, response.at("id").get<int>());
     const auto result = response.at("result");
@@ -279,6 +288,26 @@ std::vector<McpTool> parseToolsListResult(const nlohmann::json& response) {
     return tools;
 }
 
+McpToolResult parseToolsCallResult(const nlohmann::json& response) {
+    ensureJsonRpcResponse(response, response.at("id").get<int>());
+    const auto result = response.at("result");
+
+    McpToolResult toolResult;
+    toolResult.isError = result.value("isError", false);
+    toolResult.rawContent = result.value("content", nlohmann::json::array());
+
+    for (const auto& item : toolResult.rawContent) {
+        if (item.value("type", "") != "text") {
+            continue;
+        }
+        if (!toolResult.text.empty()) {
+            toolResult.text += "\n";
+        }
+        toolResult.text += item.value("text", "");
+    }
+    return toolResult;
+}
+
 StdioMcpClient::StdioMcpClient(std::vector<std::string> command) : command_(std::move(command)) {}
 
 McpServerInfo StdioMcpClient::discoverTools() const {
@@ -294,6 +323,23 @@ McpServerInfo StdioMcpClient::discoverTools() const {
     process.writeLine(makeToolsListRequest(toolsListId).dump());
     info.tools = parseToolsListResult(nlohmann::json::parse(process.readLine()));
     return info;
+#else
+    throw mcpError("stdio process transport is currently implemented for Windows only");
+#endif
+}
+
+McpToolResult StdioMcpClient::callTool(const std::string& name, const nlohmann::json& arguments) const {
+#ifdef _WIN32
+    ChildProcess process(command_);
+    constexpr int initializeId = 1;
+    constexpr int toolCallId = 2;
+
+    process.writeLine(makeInitializeRequest(initializeId).dump());
+    parseInitializeResult(nlohmann::json::parse(process.readLine()));
+
+    process.writeLine(makeInitializedNotification().dump());
+    process.writeLine(makeToolsCallRequest(toolCallId, name, arguments).dump());
+    return parseToolsCallResult(nlohmann::json::parse(process.readLine()));
 #else
     throw mcpError("stdio process transport is currently implemented for Windows only");
 #endif

@@ -6,11 +6,13 @@
 
 using cpp_ai_agent::mcp::makeInitializeRequest;
 using cpp_ai_agent::mcp::makeInitializedNotification;
+using cpp_ai_agent::mcp::makeToolsCallRequest;
 using cpp_ai_agent::mcp::makeToolsListRequest;
 using cpp_ai_agent::mcp::parseInitializeResult;
+using cpp_ai_agent::mcp::parseToolsCallResult;
 using cpp_ai_agent::mcp::parseToolsListResult;
 
-TEST_CASE("McpClient builds initialize and tools/list requests") {
+TEST_CASE("McpClient builds initialize, tools/list, and tools/call requests") {
     const auto initialize = makeInitializeRequest(1);
 
     CHECK(initialize.at("jsonrpc") == "2.0");
@@ -25,6 +27,12 @@ TEST_CASE("McpClient builds initialize and tools/list requests") {
     const auto toolsList = makeToolsListRequest(2);
     CHECK(toolsList.at("id") == 2);
     CHECK(toolsList.at("method") == "tools/list");
+
+    const auto toolsCall = makeToolsCallRequest(3, "echo", {{"text", "hello"}});
+    CHECK(toolsCall.at("id") == 3);
+    CHECK(toolsCall.at("method") == "tools/call");
+    CHECK(toolsCall.at("params").at("name") == "echo");
+    CHECK(toolsCall.at("params").at("arguments").at("text") == "hello");
 }
 
 TEST_CASE("McpClient parses initialize and tools/list responses") {
@@ -70,4 +78,26 @@ TEST_CASE("McpClient parses initialize and tools/list responses") {
     CHECK(tools.at(0).name == "echo");
     CHECK(tools.at(0).description == "Echo text.");
     CHECK(tools.at(0).inputSchema.at("type") == "object");
+}
+
+TEST_CASE("McpClient parses tools/call text results") {
+    const nlohmann::json response = {
+        {"jsonrpc", "2.0"},
+        {"id", 3},
+        {"result",
+         {
+             {"content",
+              nlohmann::json::array({
+                  {{"type", "text"}, {"text", "hello"}},
+                  {{"type", "text"}, {"text", "world"}},
+              })},
+             {"isError", false},
+         }},
+    };
+
+    const auto result = parseToolsCallResult(response);
+
+    CHECK_FALSE(result.isError);
+    CHECK(result.text == "hello\nworld");
+    REQUIRE(result.rawContent.size() == 2);
 }
