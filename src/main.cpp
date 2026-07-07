@@ -25,6 +25,7 @@
 #include <nlohmann/json.hpp>
 #include <string>
 #include <utility>
+#include <vector>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -247,11 +248,21 @@ void printSkills(const cpp_ai_agent::skills::SkillCatalog& catalog) {
     std::cout << "skills> available skills\n";
     for (const auto& skill : catalog.all()) {
         std::cout << "  - " << skill.name << ": " << skill.description << "\n";
+        if (!skill.allowedTools.empty()) {
+            std::cout << "    tools: ";
+            for (std::size_t i = 0; i < skill.allowedTools.size(); ++i) {
+                if (i > 0) {
+                    std::cout << ", ";
+                }
+                std::cout << skill.allowedTools.at(i);
+            }
+            std::cout << "\n";
+        }
         if (!skill.suggestedPrompt.empty()) {
             std::cout << "    prompt: " << skill.suggestedPrompt << "\n";
         }
     }
-    std::cout << "skills> use /use-skill <name> in chat to activate one.\n";
+    std::cout << "skills> use /use-skill <name> [target] in chat to activate one.\n";
 }
 
 void printMcpServerInfo(const cpp_ai_agent::mcp::McpServerInfo& info) {
@@ -531,7 +542,7 @@ int main(int argc, char* argv[]) {
 
             if (command == "/use-skill") {
                 std::cout << "usage> ai-agent.exe\n";
-                std::cout << "then type> /use-skill <name>\n";
+                std::cout << "then type> /use-skill <name> [target]\n";
                 printSkills(skillCatalog);
                 return 0;
             }
@@ -632,6 +643,10 @@ int main(int argc, char* argv[]) {
         console.printBanner(appConfig.llm.model, appConfig.workspaceRoot);
         std::cout << "log> " << logger.path().string() << "\n\n";
 
+        std::string activeSkillName;
+        std::string activeSkillTarget;
+        std::vector<std::string> activeAllowedTools;
+
         cpp_ai_agent::agent::AgentLoop agentLoop(
             llm,
             tools,
@@ -651,6 +666,16 @@ int main(int argc, char* argv[]) {
                 } else if (event.type == AgentEventType::Warning) {
                     console.printWarning(event.detail);
                 }
+            },
+            40,
+            [&activeSkillName, &activeAllowedTools](const std::string& toolName) {
+                if (activeSkillName.empty() || activeAllowedTools.empty()) {
+                    return std::string();
+                }
+                if (std::find(activeAllowedTools.begin(), activeAllowedTools.end(), toolName) != activeAllowedTools.end()) {
+                    return std::string();
+                }
+                return "Tool '" + toolName + "' is blocked by active skill '" + activeSkillName + "'.";
             }
         );
 
@@ -690,7 +715,10 @@ int main(int argc, char* argv[]) {
 
             const std::string useSkillPrefix = "/use-skill ";
             if (commandInput.rfind(useSkillPrefix, 0) == 0) {
-                const auto skillName = commandInput.substr(useSkillPrefix.size());
+                auto rest = trimCommandInput(commandInput.substr(useSkillPrefix.size()));
+                const auto firstSpace = rest.find(' ');
+                const auto skillName = firstSpace == std::string::npos ? rest : rest.substr(0, firstSpace);
+                const auto skillTarget = firstSpace == std::string::npos ? "" : trimCommandInput(rest.substr(firstSpace + 1));
                 const auto* skill = skillCatalog.find(skillName);
                 if (skill == nullptr) {
                     console.printWarning("Unknown skill: " + skillName);
@@ -698,15 +726,33 @@ int main(int argc, char* argv[]) {
                     continue;
                 }
 
-                session.addMessage(makeMessage(Role::System, makeSkillSystemMessage(*skill)));
+                activeSkillName = skill->name;
+                activeSkillTarget = skillTarget;
+                activeAllowedTools = skill->allowedTools;
+                session.addMessage(makeMessage(Role::System, makeSkillSystemMessage(*skill, activeSkillTarget)));
                 logger.log(
                     "skill_selected",
                     {
                         {"name", skill->name},
                         {"description", skill->description},
+                        {"target", activeSkillTarget},
+                        {"allowed_tools", activeAllowedTools},
                     }
                 );
                 std::cout << "skill> active: " << skill->name << "\n";
+                if (!activeSkillTarget.empty()) {
+                    std::cout << "skill> target: " << activeSkillTarget << "\n";
+                }
+                if (!activeAllowedTools.empty()) {
+                    std::cout << "skill> allowed tools: ";
+                    for (std::size_t i = 0; i < activeAllowedTools.size(); ++i) {
+                        if (i > 0) {
+                            std::cout << ", ";
+                        }
+                        std::cout << activeAllowedTools.at(i);
+                    }
+                    std::cout << "\n";
+                }
                 if (!skill->suggestedPrompt.empty()) {
                     std::cout << "skill> suggested prompt: " << skill->suggestedPrompt << "\n";
                 }

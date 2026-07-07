@@ -38,6 +38,9 @@ SkillCatalog loadSkillCatalog(const std::filesystem::path& path) {
         skill.description = rawSkill.value("description", "");
         skill.suggestedPrompt = rawSkill.value("suggested_prompt", "");
         skill.systemPrompt = rawSkill.value("system_prompt", "");
+        for (const auto& rawTool : rawSkill.value("allowed_tools", nlohmann::json::array())) {
+            skill.allowedTools.push_back(rawTool.get<std::string>());
+        }
         if (!skill.name.empty()) {
             skills.push_back(std::move(skill));
         }
@@ -45,10 +48,23 @@ SkillCatalog loadSkillCatalog(const std::filesystem::path& path) {
     return SkillCatalog(std::move(skills));
 }
 
-std::string makeSkillSystemMessage(const Skill& skill) {
+std::string makeSkillSystemMessage(const Skill& skill, const std::string& target) {
     std::string message = "Active skill: " + skill.name + ". ";
     if (!skill.description.empty()) {
         message += skill.description + " ";
+    }
+    if (!target.empty()) {
+        message += "Target: " + target + ". ";
+    }
+    if (!skill.allowedTools.empty()) {
+        message += "Allowed tools for this skill: ";
+        for (std::size_t i = 0; i < skill.allowedTools.size(); ++i) {
+            if (i > 0) {
+                message += ", ";
+            }
+            message += skill.allowedTools.at(i);
+        }
+        message += ". Do not call tools outside this list. ";
     }
     if (!skill.systemPrompt.empty()) {
         message += "Follow these skill instructions: " + skill.systemPrompt;

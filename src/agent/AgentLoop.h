@@ -28,6 +28,7 @@ struct AgentEvent {
 };
 
 using AgentEventCallback = std::function<void(const AgentEvent&)>;
+using ToolPolicy = std::function<std::string(const std::string& toolName)>;
 
 class AgentLoop {
 public:
@@ -38,7 +39,8 @@ public:
         storage::JsonLogger& logger,
         int maxIterations,
         AgentEventCallback onEvent = {},
-        int maxContextMessages = 40
+        int maxContextMessages = 40,
+        ToolPolicy toolPolicy = {}
     );
 
     core::Message runTurn(core::Session& session) const;
@@ -54,6 +56,7 @@ private:
     int maxIterations_ = 10;
     AgentEventCallback onEvent_;
     core::ContextManager context_;
+    ToolPolicy toolPolicy_;
 };
 
 }  // namespace cpp_ai_agent::agent

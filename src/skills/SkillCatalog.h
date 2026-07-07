@@ -11,6 +11,7 @@ struct Skill {
     std::string description;
     std::string suggestedPrompt;
     std::string systemPrompt;
+    std::vector<std::string> allowedTools;
 };
 
 class SkillCatalog {
@@ -25,6 +26,6 @@ private:
 };
 
 SkillCatalog loadSkillCatalog(const std::filesystem::path& path);
-std::string makeSkillSystemMessage(const Skill& skill);
+std::string makeSkillSystemMessage(const Skill& skill, const std::string& target = "");
 
 }  // namespace cpp_ai_agent::skills

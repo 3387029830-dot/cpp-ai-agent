@@ -30,6 +30,7 @@ TEST_CASE("SkillCatalog loads and finds configured skills") {
     {
       "name": "code_review",
       "description": "Review code.",
+      "allowed_tools": ["read_file"],
       "suggested_prompt": "Review src.",
       "system_prompt": "Find bugs first."
     }
@@ -43,8 +44,13 @@ TEST_CASE("SkillCatalog loads and finds configured skills") {
     const auto* skill = catalog.find("code_review");
     REQUIRE(skill != nullptr);
     CHECK(skill->description == "Review code.");
+    REQUIRE(skill->allowedTools.size() == 1);
+    CHECK(skill->allowedTools.at(0) == "read_file");
     CHECK(skill->suggestedPrompt == "Review src.");
-    CHECK(cpp_ai_agent::skills::makeSkillSystemMessage(*skill).find("Find bugs first.") != std::string::npos);
+    const auto systemMessage = cpp_ai_agent::skills::makeSkillSystemMessage(*skill, "src/mcp");
+    CHECK(systemMessage.find("Find bugs first.") != std::string::npos);
+    CHECK(systemMessage.find("Target: src/mcp") != std::string::npos);
+    CHECK(systemMessage.find("read_file") != std::string::npos);
 
     std::filesystem::remove_all(path.parent_path());
 }

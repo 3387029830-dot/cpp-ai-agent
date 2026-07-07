@@ -180,3 +180,37 @@ TEST_CASE("AgentLoop sends a bounded context window to the LLM") {
 
     std::filesystem::remove_all(historyDir);
 }
+
+TEST_CASE("AgentLoop blocks tool calls denied by tool policy") {
+    const auto historyDir = makeTempHistoryDir("tool-policy");
+    {
+        cpp_ai_agent::storage::JsonLogger logger(historyDir);
+        cpp_ai_agent::tools::ToolRegistry tools;
+        tools.registerTool(std::make_shared<EchoTool>());
+        cpp_ai_agent::security::PermissionManager permissions(cpp_ai_agent::security::PermissionMode::ReadOnly);
+        ScriptedLlm llm({ScriptedLlm::toolCall("call-1"), ScriptedLlm::assistant("final")});
+        cpp_ai_agent::agent::AgentLoop loop(
+            llm,
+            tools,
+            permissions,
+            logger,
+            10,
+            {},
+            40,
+            [](const std::string& toolName) {
+                return "Tool '" + toolName + "' is blocked by active skill 'project_summary'.";
+            }
+        );
+        cpp_ai_agent::core::Session session("test");
+        session.addMessage(userMessage("use a blocked tool"));
+
+        const auto reply = loop.runTurn(session);
+
+        CHECK(reply.content == "final");
+        REQUIRE(llm.seenMessages.size() == 2);
+        const auto& secondCallMessages = llm.seenMessages.at(1);
+        CHECK(secondCallMessages.back().content.find("blocked by active skill") != std::string::npos);
+    }
+
+    std::filesystem::remove_all(historyDir);
+}
