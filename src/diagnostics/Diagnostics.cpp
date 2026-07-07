@@ -119,6 +119,8 @@ std::vector<std::string> formatConfigSummary(const config::AppConfig& config) {
         "model: " + config.llm.model,
         "api_key: " + std::string(config.llm.apiKey.empty() ? "missing" : "set"),
         "proxy_url: " + std::string(config.llm.proxyUrl.empty() ? "(empty)" : config.llm.proxyUrl),
+        "web_search_proxy_url: " +
+            std::string(config.webSearchProxyUrl.empty() ? "(empty)" : config.webSearchProxyUrl),
         "workspace_root: " + config.workspaceRoot,
         "history_dir: " + config.historyDir,
     };

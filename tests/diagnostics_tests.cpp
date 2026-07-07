@@ -2,6 +2,7 @@
 
 #include "diagnostics/Diagnostics.h"
 
+#include <algorithm>
 #include <string>
 
 TEST_CASE("Config summary reports key presence without leaking the key") {
@@ -9,6 +10,7 @@ TEST_CASE("Config summary reports key presence without leaking the key") {
     config.llm.baseUrl = "https://api.example/v1";
     config.llm.model = "test-model";
     config.llm.apiKey = "sk-secret-value";
+    config.webSearchProxyUrl = "http://127.0.0.1:7897";
     config.workspaceRoot = ".";
     config.historyDir = "logs";
 
@@ -23,6 +25,7 @@ TEST_CASE("Config summary reports key presence without leaking the key") {
     }
 
     CHECK(sawKeyStatus);
+    CHECK(std::find(lines.begin(), lines.end(), "web_search_proxy_url: http://127.0.0.1:7897") != lines.end());
 }
 
 TEST_CASE("Diagnostics warns for placeholder API key") {

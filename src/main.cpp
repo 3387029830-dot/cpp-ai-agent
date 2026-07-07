@@ -154,7 +154,8 @@ std::string envTemplateForProvider(const std::string& provider) {
             "OPENAI_API_KEY=your_deepseek_key_here\n"
             "OPENAI_BASE_URL=https://api.deepseek.com\n"
             "OPENAI_MODEL=deepseek-chat\n"
-            "OPENAI_PROXY_URL=\n";
+            "OPENAI_PROXY_URL=\n"
+            "WEB_SEARCH_PROXY_URL=http://127.0.0.1:7897\n";
     }
 
     if (provider == "linkapi") {
@@ -162,7 +163,8 @@ std::string envTemplateForProvider(const std::string& provider) {
             "OPENAI_API_KEY=your_linkapi_key_here\n"
             "OPENAI_BASE_URL=https://api.linkapi.ai/v1\n"
             "OPENAI_MODEL=gpt-5.4-mini\n"
-            "OPENAI_PROXY_URL=\n";
+            "OPENAI_PROXY_URL=\n"
+            "WEB_SEARCH_PROXY_URL=http://127.0.0.1:7897\n";
     }
 
     return "";
@@ -544,7 +546,7 @@ int main(int argc, char* argv[]) {
                     }
                     query += argv[i];
                 }
-                WebSearchTool searchTool(appConfig.llm.proxyUrl);
+                WebSearchTool searchTool(appConfig.webSearchProxyUrl);
                 const auto result = searchTool.execute({{"query", query}, {"max_results", 5}});
                 std::cout << (result.success ? result.output : "search> " + result.output + "\n");
                 return 0;
@@ -641,7 +643,7 @@ int main(int argc, char* argv[]) {
         tools.registerTool(std::make_shared<WriteFileTool>(std::filesystem::path(appConfig.workspaceRoot)));
         tools.registerTool(std::make_shared<EditFileTool>(std::filesystem::path(appConfig.workspaceRoot)));
         tools.registerTool(std::make_shared<ShellTool>());
-        tools.registerTool(std::make_shared<WebSearchTool>(appConfig.llm.proxyUrl));
+        tools.registerTool(std::make_shared<WebSearchTool>(appConfig.webSearchProxyUrl));
         registerBuiltInMcpTools(tools, argv[0]);
         registerConfiguredMcpTools(tools, "config/mcp_servers.json");
 

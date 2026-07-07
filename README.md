@@ -70,6 +70,7 @@ OPENAI_API_KEY=你的 API Key
 OPENAI_BASE_URL=https://api.linkapi.ai/v1
 OPENAI_MODEL=gpt-5.4-mini
 OPENAI_PROXY_URL=
+WEB_SEARCH_PROXY_URL=http://127.0.0.1:7897
 ```
 
 如果使用 DeepSeek，可以改成：
@@ -79,6 +80,7 @@ OPENAI_API_KEY=你的 DeepSeek API Key
 OPENAI_BASE_URL=https://api.deepseek.com
 OPENAI_MODEL=deepseek-chat
 OPENAI_PROXY_URL=
+WEB_SEARCH_PROXY_URL=http://127.0.0.1:7897
 ```
 
 也可以直接复制样例：
@@ -184,10 +186,10 @@ cd ..\..
 .\build\msvc-vcpkg-debug\ai-agent.exe /mcp-connect <command> [args...]
 ```
 
-如果 `/search` 访问外网超时，可以在当前 PowerShell 里临时设置代理后再运行：
+`/search` 使用独立的 Web 搜索代理配置。默认 `config/settings.json` 中的 `web_search.proxy_url` 为 `http://127.0.0.1:7897`，如果你的代理端口不同，可以改配置或在当前 PowerShell 里覆盖：
 
 ```powershell
-$env:HTTPS_PROXY="http://127.0.0.1:7897"
+$env:WEB_SEARCH_PROXY_URL="http://127.0.0.1:7897"
 .\build\msvc-vcpkg-debug\ai-agent.exe /search cpp-ai-agent MCP stdio
 ```
 

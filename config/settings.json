@@ -5,6 +5,9 @@
     "api_key_env": "OPENAI_API_KEY",
     "proxy_url": ""
   },
+  "web_search": {
+    "proxy_url": "http://127.0.0.1:7897"
+  },
   "agent": {
     "max_iterations": 10
   },

@@ -164,6 +164,16 @@ AppConfig loadAppConfig(const std::string& path) {
     );
     config.llm.proxyUrl = getConfigValue(dotEnv, "OPENAI_PROXY_URL", llm.value("proxy_url", ""));
 
+    if (json.contains("web_search")) {
+        config.webSearchProxyUrl = getConfigValue(
+            dotEnv,
+            "WEB_SEARCH_PROXY_URL",
+            json.at("web_search").value("proxy_url", config.llm.proxyUrl)
+        );
+    } else {
+        config.webSearchProxyUrl = getConfigValue(dotEnv, "WEB_SEARCH_PROXY_URL", config.llm.proxyUrl);
+    }
+
     const auto apiKeyEnv = llm.value("api_key_env", "OPENAI_API_KEY");
     config.llm.apiKey = getConfigValue(dotEnv, apiKeyEnv, "");
 

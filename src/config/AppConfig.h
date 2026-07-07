@@ -9,6 +9,7 @@ namespace cpp_ai_agent::config {
 
 struct AppConfig {
     llm::LlmConfig llm;
+    std::string webSearchProxyUrl;
     int maxIterations = 10;
     security::PermissionMode permissionMode = security::PermissionMode::AskEachTime;
     std::string workspaceRoot = ".";
