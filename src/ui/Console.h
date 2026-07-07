@@ -19,6 +19,12 @@ public:
         const std::string& args,
         const std::string& preview
     ) const;
+    bool confirmPermission(
+        const std::string& toolName,
+        const std::string& risk,
+        const std::string& args,
+        const std::string& preview
+    ) const;
     void printWarning(const std::string& text) const;
     void printError(const std::string& text) const;
     void printUiOverview(const std::string& model, const std::string& baseUrl, const std::string& workspace, const std::string& historyDir) const;

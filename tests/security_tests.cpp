@@ -31,8 +31,14 @@ TEST_CASE("PermissionManager asks before write tools in ask-each-time mode") {
     CHECK(prompted);
 }
 
-TEST_CASE("PermissionManager blocks obviously destructive commands") {
-    PermissionManager permissions(PermissionMode::TrustSession);
+TEST_CASE("PermissionManager asks before obviously destructive commands") {
+    bool prompted = false;
+    PermissionManager permissions(PermissionMode::TrustSession, [&](const PermissionRequest& request) {
+        prompted = true;
+        CHECK(request.toolName == "run_command");
+        return false;
+    });
 
     CHECK_FALSE(permissions.approve({"run_command", RiskLevel::Dangerous, R"({"command":"git reset --hard"})", ""}));
+    CHECK(prompted);
 }

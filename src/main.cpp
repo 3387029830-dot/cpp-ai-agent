@@ -15,8 +15,6 @@
 #include "ui/Console.h"
 
 #include <exception>
-#include <algorithm>
-#include <cctype>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -165,30 +163,6 @@ std::string envTemplateForProvider(const std::string& provider) {
     return "";
 }
 
-std::string lowerCopy(std::string value) {
-    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch) {
-        return static_cast<char>(std::tolower(ch));
-    });
-    return value;
-}
-
-bool readPermissionChoice() {
-    std::string answer;
-    while (std::getline(std::cin, answer)) {
-        const auto normalized = lowerCopy(answer);
-        if (normalized.empty() || normalized == "n" || normalized == "no") {
-            return false;
-        }
-        if (normalized == "y" || normalized == "yes") {
-            return true;
-        }
-
-        std::cout << "  please choose y or n> ";
-    }
-
-    return false;
-}
-
 int writeEnvTemplate(const std::string& provider) {
     const auto content = envTemplateForProvider(provider);
     if (content.empty()) {
@@ -233,7 +207,7 @@ void printDemoGuide() {
 
     std::cout << "4. Show permission control\n";
     std::cout << "   prompt: Create temp-demo.txt with the content hello agent.\n";
-    std::cout << "   expected: permission prompt for write_file; choose y to allow or n to reject.\n\n";
+    std::cout << "   expected: permission prompt for write_file; choose an option with arrow keys and press Enter.\n\n";
 
     std::cout << "5. Show history replay\n";
     std::cout << "   .\\build\\msvc-vcpkg-debug\\ai-agent.exe /history\n";
@@ -624,14 +598,12 @@ int main(int argc, char* argv[]) {
         PermissionManager permissions(
             appConfig.permissionMode,
             [&console](const PermissionRequest& request) {
-                console.printPermissionPrompt(
+                return console.confirmPermission(
                     request.toolName,
                     cpp_ai_agent::security::riskLevelToString(request.risk),
                     request.arguments,
                     request.preview
                 );
-
-                return readPermissionChoice();
             }
         );
         JsonLogger logger(std::filesystem::path(appConfig.historyDir));
