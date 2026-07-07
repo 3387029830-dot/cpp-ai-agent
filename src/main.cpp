@@ -484,6 +484,7 @@ int main(int argc, char* argv[]) {
     using cpp_ai_agent::storage::JsonLogger;
     using cpp_ai_agent::storage::replayHistoryFile;
     using cpp_ai_agent::tools::EditFileTool;
+    using cpp_ai_agent::tools::ListDirTool;
     using cpp_ai_agent::tools::ReadFileTool;
     using cpp_ai_agent::tools::ShellTool;
     using cpp_ai_agent::tools::ToolRegistry;
@@ -621,6 +622,7 @@ int main(int argc, char* argv[]) {
 
         LlmClient llm(appConfig.llm);
         ToolRegistry tools;
+        tools.registerTool(std::make_shared<ListDirTool>(std::filesystem::path(appConfig.workspaceRoot)));
         tools.registerTool(std::make_shared<ReadFileTool>(std::filesystem::path(appConfig.workspaceRoot)));
         tools.registerTool(std::make_shared<WriteFileTool>(std::filesystem::path(appConfig.workspaceRoot)));
         tools.registerTool(std::make_shared<EditFileTool>(std::filesystem::path(appConfig.workspaceRoot)));

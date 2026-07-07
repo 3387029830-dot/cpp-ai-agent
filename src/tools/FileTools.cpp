@@ -2,16 +2,22 @@
 
 #include "tools/PathUtils.h"
 
+#include <algorithm>
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
 #include <utility>
+#include <vector>
 
 namespace cpp_ai_agent::tools {
 
 namespace {
 
 std::string readWholeFile(const std::filesystem::path& path) {
+    if (std::filesystem::is_directory(path)) {
+        throw std::runtime_error("Path is a directory. Use list_dir to inspect files first: " + path.string());
+    }
+
     std::ifstream input(path, std::ios::binary);
     if (!input) {
         throw std::runtime_error("Failed to open file for reading: " + path.string());
@@ -20,6 +26,15 @@ std::string readWholeFile(const std::filesystem::path& path) {
     std::ostringstream buffer;
     buffer << input.rdbuf();
     return buffer.str();
+}
+
+std::string relativeDisplayPath(const std::filesystem::path& root, const std::filesystem::path& path) {
+    std::error_code error;
+    const auto relative = std::filesystem::relative(path, root, error);
+    if (!error) {
+        return relative.generic_string();
+    }
+    return path.generic_string();
 }
 
 void writeWholeFile(const std::filesystem::path& path, const std::string& content) {
@@ -139,6 +154,62 @@ ToolResult ReadFileTool::execute(const nlohmann::json& args) const {
             true,
             content,
             "Read file: " + path.string(),
+        };
+    } catch (const std::exception& ex) {
+        return failureResult(ex);
+    }
+}
+
+ListDirTool::ListDirTool(std::filesystem::path workspaceRoot)
+    : workspaceRoot_(std::move(workspaceRoot)) {}
+
+std::string ListDirTool::name() const {
+    return "list_dir";
+}
+
+std::string ListDirTool::description() const {
+    return "List files and directories inside a workspace directory.";
+}
+
+nlohmann::json ListDirTool::parametersSchema() const {
+    return {
+        {"type", "object"},
+        {"properties", {{"path", stringProperty("Directory path to list, relative to the workspace.")}}},
+        {"required", nlohmann::json::array({"path"})},
+        {"additionalProperties", false},
+    };
+}
+
+RiskLevel ListDirTool::risk() const {
+    return RiskLevel::Safe;
+}
+
+ToolResult ListDirTool::execute(const nlohmann::json& args) const {
+    try {
+        const auto path = resolveWorkspacePath(workspaceRoot_, args.at("path").get<std::string>());
+        if (!std::filesystem::is_directory(path)) {
+            throw std::runtime_error("Path is not a directory: " + path.string());
+        }
+
+        std::vector<std::filesystem::directory_entry> entries;
+        for (const auto& entry : std::filesystem::directory_iterator(path)) {
+            entries.push_back(entry);
+        }
+        std::sort(entries.begin(), entries.end(), [](const auto& left, const auto& right) {
+            return left.path().filename().generic_string() < right.path().filename().generic_string();
+        });
+
+        std::ostringstream output;
+        output << "Directory: " << relativeDisplayPath(workspaceRoot_, path) << "\n";
+        for (const auto& entry : entries) {
+            output << (entry.is_directory() ? "[dir]  " : "[file] ");
+            output << relativeDisplayPath(workspaceRoot_, entry.path()) << "\n";
+        }
+
+        return {
+            true,
+            output.str(),
+            "Listed directory: " + path.string(),
         };
     } catch (const std::exception& ex) {
         return failureResult(ex);

@@ -93,6 +93,7 @@ TEST_CASE("File tools read, write, and edit files inside workspace") {
 
     cpp_ai_agent::tools::WriteFileTool writeTool(root);
     cpp_ai_agent::tools::ReadFileTool readTool(root);
+    cpp_ai_agent::tools::ListDirTool listTool(root);
     cpp_ai_agent::tools::EditFileTool editTool(root);
 
     const auto writeResult = writeTool.execute({
@@ -104,6 +105,14 @@ TEST_CASE("File tools read, write, and edit files inside workspace") {
     const auto readResult = readTool.execute({{"path", "notes/example.txt"}});
     REQUIRE(readResult.success);
     CHECK(readResult.output == "hello world");
+
+    const auto listResult = listTool.execute({{"path", "notes"}});
+    REQUIRE(listResult.success);
+    CHECK(listResult.output.find("[file] notes/example.txt") != std::string::npos);
+
+    const auto readDirResult = readTool.execute({{"path", "notes"}});
+    CHECK_FALSE(readDirResult.success);
+    CHECK(readDirResult.output.find("Use list_dir") != std::string::npos);
 
     const auto editResult = editTool.execute({
         {"path", "notes/example.txt"},
@@ -131,11 +140,16 @@ TEST_CASE("File tools read, write, and edit files inside workspace") {
 TEST_CASE("File tools reject paths outside workspace") {
     const auto root = makeTempWorkspace("file-tools-outside");
     cpp_ai_agent::tools::ReadFileTool readTool(root);
+    cpp_ai_agent::tools::ListDirTool listTool(root);
 
     const auto result = readTool.execute({{"path", "../outside.txt"}});
 
     CHECK_FALSE(result.success);
     CHECK(result.output.find("outside the workspace") != std::string::npos);
+
+    const auto listResult = listTool.execute({{"path", "../"}});
+    CHECK_FALSE(listResult.success);
+    CHECK(listResult.output.find("outside the workspace") != std::string::npos);
 
     std::filesystem::remove_all(root);
 }

@@ -219,6 +219,7 @@ $env:OPENAI_MODEL="gpt-5.4-mini"
 - 提供最小 MCP stdio 客户端，支持初始化、工具列表发现和基础工具调用；内置 MCP 工具会注册进 AgentLoop，可由模型自动调用。
 - 可从 `config/mcp_servers.json` 读取外部 stdio MCP server，自动发现并注册工具。
 - 支持 `/use-skill <name> [target]` 在主对话中启用 Skill，将 code review、C++ debug、项目总结、测试生成等专家提示和目标参数注入 Agent 上下文，并按 Skill 工具白名单限制工具调用。
+- 提供 `list_dir` 安全工具，目录型任务可先列目录再逐个读取文件。
 - 加入权限确认，避免模型直接执行高风险操作；写入和编辑文件前会显示 diff 预览再请求确认。
 - 记录执行日志，支持历史回放和答辩演示。
 - 使用 ANSI 增强的流式控制台展示对话、工具调用、权限确认、状态和结果。
