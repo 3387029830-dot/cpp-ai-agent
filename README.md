@@ -6,9 +6,9 @@
 
 ## 当前状态
 
-当前版本：v0.1.0。项目已完成 M0-M5 演示版闭环：CMake + vcpkg 构建、OpenAI 兼容 API 对话、工具调用、权限确认、JSONL 日志、历史回放、配置诊断、FTXUI 四区状态页和答辩材料。
+当前版本：v0.1.0。项目已完成 M0-M5 演示版闭环：CMake + vcpkg 构建、OpenAI 兼容 API 对话、工具调用、权限确认、JSONL 日志、历史回放、配置诊断、ANSI 增强流式控制台界面和答辩材料。
 
-在 v0.1.0 交付版之后，本地增强了 AgentLoop 的可测试性：新增 `ContextManager` 上下文窗口、可注入的 `ILlmClient` 接口、独立 `tool_calls` 解析测试，以及 Agent 主循环 mock LLM 自动化测试。
+在 v0.1.0 交付版之后，本地增强了 AgentLoop 的可测试性和终端呈现：新增 `ContextManager` 上下文窗口、可注入的 `ILlmClient` 接口、独立 `tool_calls` 解析测试、Agent 主循环 mock LLM 自动化测试，以及 `src/ui/Console.*` 流式控制台呈现模块。
 
 ## 快速开始
 
@@ -181,7 +181,7 @@ $env:OPENAI_MODEL="gpt-5.4-mini"
 - 接入 OpenAI 兼容格式的大模型 API。
 - 加入权限确认，避免模型直接执行高风险操作。
 - 记录执行日志，支持历史回放和答辩演示。
-- 使用 TUI 展示对话、工具调用、状态和结果。
+- 使用 ANSI 增强的流式控制台展示对话、工具调用、权限确认、状态和结果。
 
 ## 技术栈
 
@@ -193,7 +193,7 @@ $env:OPENAI_MODEL="gpt-5.4-mini"
 | 编译器 | MSVC / Visual Studio Build Tools |
 | HTTP | cpr |
 | JSON | nlohmann/json |
-| TUI | FTXUI |
+| 终端呈现 | ANSI 流式控制台，保留 FTXUI 依赖用于兼容早期演示 |
 | 测试 | doctest 或 Catch2 |
 | 存储 | JSON 文件 |
 
@@ -248,6 +248,7 @@ cpp-ai-agent/
 | `src/llm/LlmParsing.*` | 解析 OpenAI-compatible `tool_calls` 响应 |
 | `src/security/` | 权限确认和危险命令拦截 |
 | `src/storage/` | JSONL 会话日志 |
+| `src/ui/Console.*` | ANSI 增强流式控制台呈现 |
 | `tests/` | 单元测试代码 |
 | `build/` | 构建产物目录，不提交到 Git |
 

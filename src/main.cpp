@@ -10,12 +10,11 @@
 #include "tools/FileTools.h"
 #include "tools/ShellTool.h"
 #include "tools/ToolRegistry.h"
+#include "ui/Console.h"
 
 #include <exception>
 #include <filesystem>
 #include <fstream>
-#include <ftxui/dom/elements.hpp>
-#include <ftxui/screen/screen.hpp>
 #include <iostream>
 #include <memory>
 #include <nlohmann/json.hpp>
@@ -250,70 +249,6 @@ void printMcpDemo() {
     std::cout << "mcp-demo> boundary: real MCP transport is planned as a future extension.\n";
 }
 
-void printStatusUi(const cpp_ai_agent::config::AppConfig& config) {
-    using namespace ftxui;
-    auto apiBase = config.llm.baseUrl;
-    const std::string httpsPrefix = "https://";
-    const std::string httpPrefix = "http://";
-    if (apiBase.rfind(httpsPrefix, 0) == 0) {
-        apiBase = apiBase.substr(httpsPrefix.size());
-    } else if (apiBase.rfind(httpPrefix, 0) == 0) {
-        apiBase = apiBase.substr(httpPrefix.size());
-    }
-
-    auto conversation = window(
-        text("Conversation"),
-        vbox({
-            text("system> cpp-ai-agent is ready"),
-            text("user> Read README.md"),
-            text("assistant> I can inspect workspace files with tools."),
-        })
-    );
-
-    auto tools = window(
-        text("Tools"),
-        vbox({
-            text("read_file     safe"),
-            text("write_file    confirm"),
-            text("edit_file     confirm"),
-            text("run_command   guarded"),
-        })
-    );
-
-    auto status = window(
-        text("Status"),
-        vbox({
-            text("LLM: " + config.llm.model),
-            text("API: " + apiBase),
-            text("Workspace: " + config.workspaceRoot),
-            text("History: " + config.historyDir),
-        })
-    );
-
-    auto input = window(
-        text("Input"),
-        text("Type a message. /exit quits.")
-    );
-
-    auto document = window(
-        text("cpp-ai-agent M5 TUI"),
-        vbox({
-            hbox({
-                conversation | flex,
-                tools | flex,
-            }),
-            hbox({
-                status | flex,
-                input | flex,
-            }),
-        })
-    );
-
-    auto screen = Screen::Create(Dimension::Fit(document));
-    Render(screen, document);
-    screen.Print();
-}
-
 }  // namespace
 
 int main(int argc, char* argv[]) {
@@ -334,11 +269,12 @@ int main(int argc, char* argv[]) {
     using cpp_ai_agent::tools::ShellTool;
     using cpp_ai_agent::tools::ToolRegistry;
     using cpp_ai_agent::tools::WriteFileTool;
+    using cpp_ai_agent::ui::Console;
+    using cpp_ai_agent::ui::detectColorSupport;
+    using cpp_ai_agent::ui::detectInteractiveOutput;
 
     const auto consoleEncoding = configureConsoleEncoding();
-
-    std::cout << "cpp-ai-agent M5 is running.\n";
-    std::cout << "Type a message and press Enter. Type /exit to quit.\n\n";
+    Console console(detectColorSupport(), detectInteractiveOutput());
 
     try {
         const auto appConfig = loadAppConfig("config/settings.json");
@@ -365,7 +301,12 @@ int main(int argc, char* argv[]) {
             }
 
             if (command == "/ui") {
-                printStatusUi(appConfig);
+                console.printUiOverview(
+                    appConfig.llm.model,
+                    appConfig.llm.baseUrl,
+                    appConfig.workspaceRoot,
+                    appConfig.historyDir
+                );
                 return 0;
             }
 
@@ -428,11 +369,12 @@ int main(int argc, char* argv[]) {
 
         PermissionManager permissions(
             appConfig.permissionMode,
-            [](const PermissionRequest& request) {
-                std::cout << "\npermission> allow tool '" << request.toolName << "' (risk="
-                          << cpp_ai_agent::security::riskLevelToString(request.risk) << ")?\n";
-                std::cout << "arguments> " << request.arguments << "\n";
-                std::cout << "type yes to allow> ";
+            [&console](const PermissionRequest& request) {
+                console.printPermissionPrompt(
+                    request.toolName,
+                    cpp_ai_agent::security::riskLevelToString(request.risk),
+                    request.arguments
+                );
 
                 std::string answer;
                 if (!std::getline(std::cin, answer)) {
@@ -443,7 +385,8 @@ int main(int argc, char* argv[]) {
             }
         );
         JsonLogger logger(std::filesystem::path(appConfig.historyDir));
-        std::cout << "log> " << logger.path().string() << "\n";
+        console.printBanner(appConfig.llm.model, appConfig.workspaceRoot);
+        std::cout << "log> " << logger.path().string() << "\n\n";
 
         cpp_ai_agent::agent::AgentLoop agentLoop(
             llm,
@@ -451,15 +394,18 @@ int main(int argc, char* argv[]) {
             permissions,
             logger,
             appConfig.maxIterations,
-            [](const cpp_ai_agent::agent::AgentEvent& event) {
+            [&console, &tools](const cpp_ai_agent::agent::AgentEvent& event) {
                 using cpp_ai_agent::agent::AgentEventType;
 
                 if (event.type == AgentEventType::ToolCall) {
-                    std::cout << "tool_call> " << event.title << " " << event.detail << "\n";
+                    const auto* tool = tools.find(event.title);
+                    const auto risk =
+                        tool == nullptr ? "unknown" : cpp_ai_agent::security::riskLevelToString(tool->risk());
+                    console.printToolCall(event.title, event.detail, risk);
                 } else if (event.type == AgentEventType::ToolResult) {
-                    std::cout << "tool_result> " << event.title << ": " << event.detail << "\n";
+                    console.printToolResult(event.title, event.detail);
                 } else if (event.type == AgentEventType::Warning) {
-                    std::cout << "warning> " << event.detail << "\n";
+                    console.printWarning(event.detail);
                 }
             }
         );
@@ -475,7 +421,7 @@ int main(int argc, char* argv[]) {
 
         std::string input;
         while (true) {
-            std::cout << "user> ";
+            std::cout << "› ";
 
             if (!std::getline(std::cin, input)) {
                 std::cout << "\n";
@@ -491,19 +437,20 @@ int main(int argc, char* argv[]) {
             }
 
             input = convertToUtf8(input, consoleEncoding);
+            console.printUser(input);
             session.addMessage(makeMessage(Role::User, input));
             logger.log("user_message", {{"content", input}});
 
             try {
                 const auto reply = agentLoop.runTurn(session);
-                std::cout << "assistant> " << reply.content << "\n";
+                console.printAssistant(reply.content);
             } catch (const std::exception& ex) {
-                std::cout << "error> " << ex.what() << "\n";
+                console.printError(ex.what());
                 std::cout << "hint> Check OPENAI_API_KEY, config/settings.json, and network access.\n";
             }
         }
     } catch (const std::exception& ex) {
-        std::cout << "startup error> " << ex.what() << "\n";
+        console.printError(std::string("startup: ") + ex.what());
         std::cout << "hint> Set OPENAI_API_KEY before starting the program.\n";
         std::cout << "      PowerShell example: $env:OPENAI_API_KEY='your_key'\n";
         return 1;

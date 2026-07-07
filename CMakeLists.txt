@@ -33,6 +33,7 @@ add_executable(ai-agent
     src/tools/PathUtils.cpp
     src/tools/ShellTool.cpp
     src/tools/ToolRegistry.cpp
+    src/ui/Console.cpp
     src/main.cpp
 )
 
@@ -49,7 +50,7 @@ target_link_libraries(ai-agent PRIVATE
 )
 
 if(MSVC)
-    target_compile_options(ai-agent PRIVATE /W4 /permissive-)
+    target_compile_options(ai-agent PRIVATE /W4 /permissive- /utf-8)
 else()
     target_compile_options(ai-agent PRIVATE -Wall -Wextra -Wpedantic)
 endif()
