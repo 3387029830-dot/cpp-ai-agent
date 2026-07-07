@@ -29,11 +29,10 @@ bool PermissionManager::approve(const PermissionRequest& request) const {
         return false;
     }
 
-    if (request.toolName == "run_command" && isBlockedDangerousCommand(request.arguments)) {
-        return false;
-    }
-
     if (mode_ == PermissionMode::TrustSession) {
+        if (request.toolName == "run_command" && isBlockedDangerousCommand(request.arguments)) {
+            return prompt_ ? prompt_(request) : false;
+        }
         return true;
     }
 

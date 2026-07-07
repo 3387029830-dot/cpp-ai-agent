@@ -143,3 +143,18 @@ TEST_CASE("AppConfig gives process environment priority over .env") {
 
     std::filesystem::remove_all(root);
 }
+
+TEST_CASE("AppConfig normalizes common LinkAPI model typo") {
+    ScopedEnv model("OPENAI_MODEL");
+    model.set("gpt-5.4.-mini");
+
+    const auto root = makeTempConfigWorkspace("model-typo");
+    writeTextFile(root / "config" / "settings.json", settingsJson());
+
+    const auto config =
+        cpp_ai_agent::config::loadAppConfig((root / "config" / "settings.json").string());
+
+    CHECK(config.llm.model == "gpt-5.4-mini");
+
+    std::filesystem::remove_all(root);
+}

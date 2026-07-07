@@ -1,7 +1,7 @@
 #include "ui/Console.h"
 
-#include <chrono>
 #include <algorithm>
+#include <chrono>
 #include <cstdlib>
 #include <iostream>
 #include <memory>
@@ -9,9 +9,11 @@
 #include <thread>
 
 #ifdef _WIN32
+#include <conio.h>
 #include <io.h>
 #include <windows.h>
 #else
+#include <termios.h>
 #include <unistd.h>
 #endif
 
@@ -26,6 +28,7 @@ constexpr const char* blue = "\033[34m";
 constexpr const char* gray = "\033[90m";
 constexpr const char* yellow = "\033[33m";
 constexpr const char* red = "\033[31m";
+constexpr const char* inverse = "\033[7m";
 
 std::size_t utf8CharLen(unsigned char firstByte) {
     if (firstByte < 0x80) {
@@ -67,6 +70,65 @@ std::string readEnv(const char* name) {
 #else
     const char* value = std::getenv(name);
     return value == nullptr ? "" : std::string(value);
+#endif
+}
+
+bool stdinIsInteractive() {
+#ifdef _WIN32
+    return _isatty(_fileno(stdin)) != 0;
+#else
+    return isatty(fileno(stdin)) != 0;
+#endif
+}
+
+void clearLine() {
+    std::cout << "\r\033[2K";
+}
+
+void moveUp(int lines) {
+    if (lines > 0) {
+        std::cout << "\033[" << lines << "A";
+    }
+}
+
+int readChoiceKey() {
+#ifdef _WIN32
+    const int ch = _getch();
+    if (ch == 0 || ch == 224) {
+        const int extended = _getch();
+        if (extended == 72 || extended == 75) {
+            return -1;
+        }
+        if (extended == 80 || extended == 77) {
+            return 1;
+        }
+        return 0;
+    }
+    return ch;
+#else
+    termios oldSettings{};
+    if (tcgetattr(STDIN_FILENO, &oldSettings) != 0) {
+        return std::cin.get();
+    }
+
+    termios raw = oldSettings;
+    raw.c_lflag &= static_cast<unsigned>(~(ICANON | ECHO));
+    tcsetattr(STDIN_FILENO, TCSANOW, &raw);
+
+    const int ch = std::cin.get();
+    int result = ch;
+    if (ch == 27 && std::cin.peek() == '[') {
+        std::cin.get();
+        const int arrow = std::cin.get();
+        if (arrow == 'A' || arrow == 'D') {
+            result = -1;
+        } else if (arrow == 'B' || arrow == 'C') {
+            result = 1;
+        }
+    }
+
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldSettings);
+    return result;
 #endif
 }
 
@@ -144,11 +206,85 @@ void Console::printToolResult(const std::string& name, const std::string& detail
     std::cout << color(gray) << "└ " << name << ": " << color(reset) << detail << "\n\n";
 }
 
-void Console::printPermissionPrompt(const std::string& toolName, const std::string& risk, const std::string& args) const {
+void Console::printPermissionPrompt(
+    const std::string& toolName,
+    const std::string& risk,
+    const std::string& args,
+    const std::string& preview
+) const {
     std::cout << "\n" << color(yellow) << "! permission required" << color(reset) << "\n";
     std::cout << "  tool: " << toolName << "  risk: " << risk << "\n";
     std::cout << "  args: " << args << "\n";
-    std::cout << color(yellow) << "  type yes to allow> " << color(reset);
+    if (!preview.empty()) {
+        std::cout << color(gray);
+        printIndented(preview);
+        std::cout << color(reset);
+    }
+    std::cout << "\n";
+    std::cout << "  Use arrow keys to choose, then press Enter.\n";
+}
+
+bool Console::confirmPermission(
+    const std::string& toolName,
+    const std::string& risk,
+    const std::string& args,
+    const std::string& preview
+) const {
+    printPermissionPrompt(toolName, risk, args, preview);
+
+    if (!stdinIsInteractive()) {
+        std::cout << color(yellow) << "  choose [y/N]> " << color(reset);
+        std::string answer;
+        if (!std::getline(std::cin, answer)) {
+            return false;
+        }
+        return answer == "y" || answer == "yes";
+    }
+
+    int selected = 1;
+    auto renderOptions = [&]() {
+        const auto marker = [&](int index, const std::string& label) {
+            if (selected == index) {
+                return color(inverse) + "> " + label + color(reset);
+            }
+            return std::string("  ") + label;
+        };
+
+        clearLine();
+        std::cout << "  " << marker(0, "[y] yes  apply this change") << "\n";
+        clearLine();
+        std::cout << "  " << marker(1, "[n] no   reject this change") << "\n";
+        std::cout.flush();
+    };
+
+    renderOptions();
+    while (true) {
+        const int key = readChoiceKey();
+        if (key == -1 || key == 1 || key == '\t') {
+            selected = 1 - selected;
+            moveUp(2);
+            renderOptions();
+            continue;
+        }
+        if (key == 'y' || key == 'Y') {
+            selected = 0;
+            moveUp(2);
+            renderOptions();
+            std::cout << "\n";
+            return true;
+        }
+        if (key == 'n' || key == 'N' || key == 27) {
+            selected = 1;
+            moveUp(2);
+            renderOptions();
+            std::cout << "\n";
+            return false;
+        }
+        if (key == '\r' || key == '\n') {
+            std::cout << "\n";
+            return selected == 0;
+        }
+    }
 }
 
 void Console::printWarning(const std::string& text) const {
@@ -169,7 +305,7 @@ void Console::printUiOverview(
     std::cout << color(cyan) << "▸ Conversation" << color(reset) << "\n";
     std::cout << "  Streamed user and assistant turns appear here.\n\n";
     std::cout << color(blue) << "● Tools" << color(reset) << "\n";
-    std::cout << "  read_file safe | write_file confirm | edit_file confirm | run_command guarded\n\n";
+    std::cout << "  read_file safe | write_file diff+confirm | edit_file diff+confirm | run_command guarded\n\n";
     std::cout << color(gray) << "Status" << color(reset) << "\n";
     std::cout << "  API: " << stripScheme(baseUrl) << "\n";
     std::cout << "  History: " << historyDir << "\n\n";

@@ -207,7 +207,7 @@ void printDemoGuide() {
 
     std::cout << "4. Show permission control\n";
     std::cout << "   prompt: Create temp-demo.txt with the content hello agent.\n";
-    std::cout << "   expected: permission prompt for write_file; type yes to allow.\n\n";
+    std::cout << "   expected: permission prompt for write_file; choose an option with arrow keys and press Enter.\n\n";
 
     std::cout << "5. Show history replay\n";
     std::cout << "   .\\build\\msvc-vcpkg-debug\\ai-agent.exe /history\n";
@@ -598,18 +598,12 @@ int main(int argc, char* argv[]) {
         PermissionManager permissions(
             appConfig.permissionMode,
             [&console](const PermissionRequest& request) {
-                console.printPermissionPrompt(
+                return console.confirmPermission(
                     request.toolName,
                     cpp_ai_agent::security::riskLevelToString(request.risk),
-                    request.arguments
+                    request.arguments,
+                    request.preview
                 );
-
-                std::string answer;
-                if (!std::getline(std::cin, answer)) {
-                    return false;
-                }
-
-                return answer == "yes" || answer == "y";
             }
         );
         JsonLogger logger(std::filesystem::path(appConfig.historyDir));

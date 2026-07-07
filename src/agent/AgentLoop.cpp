@@ -114,15 +114,16 @@ core::Message AgentLoop::executeToolCall(const core::ToolCall& toolCall) const {
         return toolMessage;
     }
 
-    if (!permissions_.approve({toolCall.name, tool->risk(), toolCall.arguments})) {
-        toolMessage.content =
-            "Tool '" + toolCall.name + "' with risk level '" +
-            security::riskLevelToString(tool->risk()) + "' was not approved.";
-        return toolMessage;
-    }
-
     try {
         const auto args = nlohmann::json::parse(toolCall.arguments.empty() ? "{}" : toolCall.arguments);
+        const auto preview = tool->risk() == tools::RiskLevel::Safe ? "" : tool->preview(args);
+        if (!permissions_.approve({toolCall.name, tool->risk(), toolCall.arguments, preview})) {
+            toolMessage.content =
+                "Tool '" + toolCall.name + "' with risk level '" +
+                security::riskLevelToString(tool->risk()) + "' was not approved.";
+            return toolMessage;
+        }
+
         const auto result = tool->execute(args);
         if (result.success) {
             toolMessage.content = result.output;

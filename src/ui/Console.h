@@ -13,7 +13,18 @@ public:
     void printAssistant(const std::string& text) const;
     void printToolCall(const std::string& name, const std::string& args, const std::string& risk) const;
     void printToolResult(const std::string& name, const std::string& detail) const;
-    void printPermissionPrompt(const std::string& toolName, const std::string& risk, const std::string& args) const;
+    void printPermissionPrompt(
+        const std::string& toolName,
+        const std::string& risk,
+        const std::string& args,
+        const std::string& preview
+    ) const;
+    bool confirmPermission(
+        const std::string& toolName,
+        const std::string& risk,
+        const std::string& args,
+        const std::string& preview
+    ) const;
     void printWarning(const std::string& text) const;
     void printError(const std::string& text) const;
     void printUiOverview(const std::string& model, const std::string& baseUrl, const std::string& workspace, const std::string& historyDir) const;

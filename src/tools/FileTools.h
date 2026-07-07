@@ -28,6 +28,7 @@ public:
     std::string description() const override;
     nlohmann::json parametersSchema() const override;
     RiskLevel risk() const override;
+    std::string preview(const nlohmann::json& args) const override;
     ToolResult execute(const nlohmann::json& args) const override;
 
 private:
@@ -42,6 +43,7 @@ public:
     std::string description() const override;
     nlohmann::json parametersSchema() const override;
     RiskLevel risk() const override;
+    std::string preview(const nlohmann::json& args) const override;
     ToolResult execute(const nlohmann::json& args) const override;
 
 private:
