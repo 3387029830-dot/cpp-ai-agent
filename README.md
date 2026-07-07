@@ -198,6 +198,16 @@ $env:OPENAI_MODEL="gpt-5.4-mini"
 
 如果 API 返回 `model_not_found`，优先检查模型名是否拼错。程序会自动把常见误拼 `gpt-5.4.-mini` 纠正为 `gpt-5.4-mini`，但仍建议在 `.env` 或系统环境变量中写正确值。
 
+在主对话中可以启用 Skill，让 Agent 切换到对应工作模式：
+
+```text
+/skills
+/use-skill code_review
+/use-skill cpp_debug
+/use-skill project_summary
+/use-skill test_writer
+```
+
 ## 核心目标
 
 - 建立完整 Agent 主循环：输入、模型决策、工具调用、结果回填、多轮执行。
@@ -206,6 +216,7 @@ $env:OPENAI_MODEL="gpt-5.4-mini"
 - 接入 OpenAI 兼容格式的大模型 API。
 - 提供最小 MCP stdio 客户端，支持初始化、工具列表发现和基础工具调用；内置 MCP 工具会注册进 AgentLoop，可由模型自动调用。
 - 可从 `config/mcp_servers.json` 读取外部 stdio MCP server，自动发现并注册工具。
+- 支持 `/use-skill <name>` 在主对话中启用 Skill，将 code review、C++ debug、项目总结、测试生成等专家提示注入 Agent 上下文。
 - 加入权限确认，避免模型直接执行高风险操作；写入和编辑文件前会显示 diff 预览再请求确认。
 - 记录执行日志，支持历史回放和答辩演示。
 - 使用 ANSI 增强的流式控制台展示对话、工具调用、权限确认、状态和结果。
@@ -267,6 +278,7 @@ cpp-ai-agent/
 | `.env.example` | 环境变量样例，不存放真实密钥 |
 | `.env` | 本地真实环境变量文件，不提交到 Git |
 | `config/mcp_servers.json` | 外部 stdio MCP server 配置，默认示例为禁用状态 |
+| `config/skills.json` | Skill 配置，内置 `code_review`、`cpp_debug`、`project_summary`、`test_writer` |
 | `.clang-format` | C++ 代码格式化规则 |
 | `config/` | 程序运行配置 |
 | `docs/` | 项目文档 |

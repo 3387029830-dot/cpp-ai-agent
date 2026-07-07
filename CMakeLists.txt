@@ -29,6 +29,7 @@ add_executable(ai-agent
     src/mcp/McpClient.cpp
     src/mcp/McpToolAdapter.cpp
     src/security/PermissionManager.cpp
+    src/skills/SkillCatalog.cpp
     src/storage/HistoryReader.cpp
     src/storage/JsonLogger.cpp
     src/tools/FileTools.cpp
@@ -69,6 +70,7 @@ add_executable(ai-agent-tests
     src/mcp/McpClient.cpp
     src/mcp/McpToolAdapter.cpp
     src/security/PermissionManager.cpp
+    src/skills/SkillCatalog.cpp
     src/storage/HistoryReader.cpp
     src/storage/JsonLogger.cpp
     src/tools/FileTools.cpp
@@ -84,6 +86,7 @@ add_executable(ai-agent-tests
     tests/llm_parsing_tests.cpp
     tests/mcp_tests.cpp
     tests/security_tests.cpp
+    tests/skill_catalog_tests.cpp
     tests/tools_tests.cpp
 )
 

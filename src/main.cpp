@@ -7,6 +7,7 @@
 #include "mcp/McpClient.h"
 #include "mcp/McpToolAdapter.h"
 #include "security/PermissionManager.h"
+#include "skills/SkillCatalog.h"
 #include "storage/HistoryReader.h"
 #include "storage/JsonLogger.h"
 #include "tools/FileTools.h"
@@ -14,6 +15,8 @@
 #include "tools/ToolRegistry.h"
 #include "ui/Console.h"
 
+#include <algorithm>
+#include <cctype>
 #include <exception>
 #include <filesystem>
 #include <fstream>
@@ -163,6 +166,20 @@ std::string envTemplateForProvider(const std::string& provider) {
     return "";
 }
 
+std::string trimCommandInput(std::string value) {
+    const std::string utf8Bom = "\xEF\xBB\xBF";
+    if (value.rfind(utf8Bom, 0) == 0) {
+        value.erase(0, utf8Bom.size());
+    }
+
+    const auto isSpace = [](unsigned char ch) {
+        return std::isspace(ch) != 0;
+    };
+    value.erase(value.begin(), std::find_if_not(value.begin(), value.end(), isSpace));
+    value.erase(std::find_if_not(value.rbegin(), value.rend(), isSpace).base(), value.end());
+    return value;
+}
+
 int writeEnvTemplate(const std::string& provider) {
     const auto content = envTemplateForProvider(provider);
     if (content.empty()) {
@@ -220,26 +237,21 @@ void printSearchPlaceholder() {
     std::cout << "search> Extension idea: add a SearchTool implementing ITool and register it in ToolRegistry.\n";
 }
 
-void printSkills(const std::filesystem::path& path) {
-    std::ifstream input(path);
-    if (!input) {
-        std::cout << "skills> failed to open " << path.string() << "\n";
-        return;
-    }
-
-    nlohmann::json json;
-    input >> json;
-    const auto skills = json.value("skills", nlohmann::json::array());
-    if (skills.empty()) {
+void printSkills(const cpp_ai_agent::skills::SkillCatalog& catalog) {
+    if (catalog.all().empty()) {
         std::cout << "skills> no skills configured.\n";
         std::cout << "skills> Add entries to config/skills.json to demonstrate prompt/tool presets.\n";
         return;
     }
 
-    for (const auto& skill : skills) {
-        std::cout << "skill> " << skill.value("name", "(unnamed)") << ": "
-                  << skill.value("description", "") << "\n";
+    std::cout << "skills> available skills\n";
+    for (const auto& skill : catalog.all()) {
+        std::cout << "  - " << skill.name << ": " << skill.description << "\n";
+        if (!skill.suggestedPrompt.empty()) {
+            std::cout << "    prompt: " << skill.suggestedPrompt << "\n";
+        }
     }
+    std::cout << "skills> use /use-skill <name> in chat to activate one.\n";
 }
 
 void printMcpServerInfo(const cpp_ai_agent::mcp::McpServerInfo& info) {
@@ -455,6 +467,8 @@ int main(int argc, char* argv[]) {
     using cpp_ai_agent::llm::LlmClient;
     using cpp_ai_agent::security::PermissionManager;
     using cpp_ai_agent::security::PermissionRequest;
+    using cpp_ai_agent::skills::loadSkillCatalog;
+    using cpp_ai_agent::skills::makeSkillSystemMessage;
     using cpp_ai_agent::storage::listHistoryFiles;
     using cpp_ai_agent::storage::JsonLogger;
     using cpp_ai_agent::storage::replayHistoryFile;
@@ -472,6 +486,7 @@ int main(int argc, char* argv[]) {
 
     try {
         const auto appConfig = loadAppConfig("config/settings.json");
+        const auto skillCatalog = loadSkillCatalog("config/skills.json");
 
         if (argc >= 2) {
             const std::string command = argv[1];
@@ -510,7 +525,14 @@ int main(int argc, char* argv[]) {
             }
 
             if (command == "/skills") {
-                printSkills("config/skills.json");
+                printSkills(skillCatalog);
+                return 0;
+            }
+
+            if (command == "/use-skill") {
+                std::cout << "usage> ai-agent.exe\n";
+                std::cout << "then type> /use-skill <name>\n";
+                printSkills(skillCatalog);
                 return 0;
             }
 
@@ -650,15 +672,48 @@ int main(int argc, char* argv[]) {
                 break;
             }
 
-            if (input == "/exit") {
+            input = convertToUtf8(input, consoleEncoding);
+            const auto commandInput = trimCommandInput(input);
+
+            if (commandInput == "/exit") {
                 break;
             }
 
-            if (input.empty()) {
+            if (commandInput.empty()) {
                 continue;
             }
 
-            input = convertToUtf8(input, consoleEncoding);
+            if (commandInput == "/skills") {
+                printSkills(skillCatalog);
+                continue;
+            }
+
+            const std::string useSkillPrefix = "/use-skill ";
+            if (commandInput.rfind(useSkillPrefix, 0) == 0) {
+                const auto skillName = commandInput.substr(useSkillPrefix.size());
+                const auto* skill = skillCatalog.find(skillName);
+                if (skill == nullptr) {
+                    console.printWarning("Unknown skill: " + skillName);
+                    printSkills(skillCatalog);
+                    continue;
+                }
+
+                session.addMessage(makeMessage(Role::System, makeSkillSystemMessage(*skill)));
+                logger.log(
+                    "skill_selected",
+                    {
+                        {"name", skill->name},
+                        {"description", skill->description},
+                    }
+                );
+                std::cout << "skill> active: " << skill->name << "\n";
+                if (!skill->suggestedPrompt.empty()) {
+                    std::cout << "skill> suggested prompt: " << skill->suggestedPrompt << "\n";
+                }
+                std::cout << "\n";
+                continue;
+            }
+
             console.printUser(input);
             session.addMessage(makeMessage(Role::User, input));
             logger.log("user_message", {{"content", input}});

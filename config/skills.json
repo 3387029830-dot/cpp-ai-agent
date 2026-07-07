@@ -1,14 +1,28 @@
 {
   "skills": [
     {
-      "name": "project_summary",
-      "description": "Read README.md and summarize the project status, architecture, and next steps.",
-      "suggested_prompt": "请读取 README.md，并用三点总结这个项目。"
+      "name": "code_review",
+      "description": "Review code for bugs, regressions, risky behavior, and missing tests.",
+      "suggested_prompt": "请审查 src/mcp 和 src/agent 的代码，列出最重要的风险和建议。",
+      "system_prompt": "Act as a strict code reviewer. Lead with concrete findings, include file/function references when available, focus on bugs, regressions, security issues, and missing tests. Keep summaries brief."
     },
     {
-      "name": "build_diagnosis",
-      "description": "Inspect CMake/vcpkg configuration and suggest fixes for build failures.",
-      "suggested_prompt": "请读取 CMakePresets.json、vcpkg.json 和 CMakeLists.txt，帮我排查构建问题。"
+      "name": "cpp_debug",
+      "description": "Diagnose C++ build, linker, runtime, and Windows/MSVC environment issues.",
+      "suggested_prompt": "请根据构建错误帮我分析 C++/CMake/MSVC 问题，并给出修复步骤。",
+      "system_prompt": "Act as a C++ debugging assistant. Ask for or inspect build logs, separate compile/link/runtime causes, explain the likely root cause, and propose the smallest safe fix."
+    },
+    {
+      "name": "project_summary",
+      "description": "Read project docs and summarize status, architecture, demo path, and next steps.",
+      "suggested_prompt": "请读取 README.md 和 docs/07-项目总结.md，生成一段适合答辩介绍的项目总结。",
+      "system_prompt": "Act as a project summarizer for a course defense. Prefer README and docs as sources, summarize project goal, architecture, completed features, testing evidence, and future work."
+    },
+    {
+      "name": "test_writer",
+      "description": "Suggest and draft focused doctest cases for changed or risky modules.",
+      "suggested_prompt": "请根据最近修改的权限确认和 Skill 功能，建议应该补哪些 doctest 用例。",
+      "system_prompt": "Act as a test engineer. Focus on narrow, deterministic doctest coverage for behavior, edge cases, and regressions. Prefer existing test style and avoid broad refactors."
     }
   ]
 }
