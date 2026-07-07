@@ -20,10 +20,12 @@ find_package(ftxui CONFIG REQUIRED)
 add_executable(ai-agent
     src/agent/AgentLoop.cpp
     src/config/AppConfig.cpp
+    src/core/ContextManager.cpp
     src/core/Message.cpp
     src/core/Session.cpp
     src/diagnostics/Diagnostics.cpp
     src/llm/LlmClient.cpp
+    src/llm/LlmParsing.cpp
     src/security/PermissionManager.cpp
     src/storage/HistoryReader.cpp
     src/storage/JsonLogger.cpp
@@ -54,7 +56,12 @@ endif()
 
 add_executable(ai-agent-tests
     src/config/AppConfig.cpp
+    src/agent/AgentLoop.cpp
+    src/core/ContextManager.cpp
+    src/core/Message.cpp
+    src/core/Session.cpp
     src/diagnostics/Diagnostics.cpp
+    src/llm/LlmParsing.cpp
     src/security/PermissionManager.cpp
     src/storage/HistoryReader.cpp
     src/storage/JsonLogger.cpp
@@ -64,7 +71,10 @@ add_executable(ai-agent-tests
     src/tools/ToolRegistry.cpp
     tests/config_tests.cpp
     tests/diagnostics_tests.cpp
+    tests/agent_loop_tests.cpp
+    tests/context_manager_tests.cpp
     tests/history_tests.cpp
+    tests/llm_parsing_tests.cpp
     tests/security_tests.cpp
     tests/tools_tests.cpp
 )

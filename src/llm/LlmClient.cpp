@@ -1,6 +1,7 @@
 #include "llm/LlmClient.h"
 
 #include "core/Message.h"
+#include "llm/LlmParsing.h"
 
 #include <cpr/cpr.h>
 #include <cpr/ssl_options.h>
@@ -54,28 +55,6 @@ nlohmann::json toApiMessages(const std::vector<core::Message>& messages) {
     }
 
     return apiMessages;
-}
-
-std::vector<core::ToolCall> parseToolCalls(const nlohmann::json& apiMessage) {
-    std::vector<core::ToolCall> toolCalls;
-    if (!apiMessage.contains("tool_calls") || !apiMessage.at("tool_calls").is_array()) {
-        return toolCalls;
-    }
-
-    for (const auto& rawToolCall : apiMessage.at("tool_calls")) {
-        core::ToolCall toolCall;
-        toolCall.id = rawToolCall.value("id", "");
-
-        const auto function = rawToolCall.value("function", nlohmann::json::object());
-        toolCall.name = function.value("name", "");
-        toolCall.arguments = function.value("arguments", "{}");
-
-        if (!toolCall.name.empty()) {
-            toolCalls.push_back(std::move(toolCall));
-        }
-    }
-
-    return toolCalls;
 }
 
 std::string redactSensitiveText(const std::string& text) {
@@ -149,17 +128,7 @@ core::Message LlmClient::chat(
     }
 
     const auto body = nlohmann::json::parse(response.text);
-    const auto apiMessage = body.at("choices").at(0).at("message");
-    std::string content;
-    if (apiMessage.contains("content") && apiMessage.at("content").is_string()) {
-        content = apiMessage.at("content").get<std::string>();
-    }
-
-    core::Message assistant;
-    assistant.role = core::Role::Assistant;
-    assistant.content = content;
-    assistant.toolCalls = parseToolCalls(apiMessage);
-    return assistant;
+    return parseAssistantMessage(body.at("choices").at(0).at("message"));
 }
 
 }  // namespace cpp_ai_agent::llm

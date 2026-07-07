@@ -21,23 +21,25 @@ std::string shortText(const std::string& value, std::size_t maxLength = 300) {
 }  // namespace
 
 AgentLoop::AgentLoop(
-    const llm::LlmClient& llm,
+        const llm::ILlmClient& llm,
     const tools::ToolRegistry& tools,
     const security::PermissionManager& permissions,
-    storage::JsonLogger& logger,
-    int maxIterations,
-    AgentEventCallback onEvent
+        storage::JsonLogger& logger,
+        int maxIterations,
+        AgentEventCallback onEvent,
+        int maxContextMessages
 )
     : llm_(llm),
       tools_(tools),
       permissions_(permissions),
       logger_(logger),
       maxIterations_(std::max(1, maxIterations)),
-      onEvent_(std::move(onEvent)) {}
+      onEvent_(std::move(onEvent)),
+      context_(static_cast<std::size_t>(std::max(1, maxContextMessages))) {}
 
 core::Message AgentLoop::runTurn(core::Session& session) const {
     for (int iteration = 0; iteration < maxIterations_; ++iteration) {
-        auto assistant = llm_.chat(session.messages(), tools_.toolsSpec());
+        auto assistant = llm_.chat(context_.buildWindow(session.messages()), tools_.toolsSpec());
         session.addMessage(assistant);
         logger_.log("assistant_message", {{"content", assistant.content}});
 

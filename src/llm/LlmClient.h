@@ -16,15 +16,27 @@ struct LlmConfig {
     std::string proxyUrl;
 };
 
-class LlmClient {
+class ILlmClient {
+public:
+    virtual ~ILlmClient() = default;
+
+    virtual core::Message chat(const std::vector<core::Message>& messages) const = 0;
+    virtual core::Message chat(
+        const std::vector<core::Message>& messages,
+        const nlohmann::json& toolsSpec
+    ) const = 0;
+};
+
+class LlmClient : public ILlmClient {
 public:
     explicit LlmClient(LlmConfig config);
+    ~LlmClient() override = default;
 
-    core::Message chat(const std::vector<core::Message>& messages) const;
+    core::Message chat(const std::vector<core::Message>& messages) const override;
     core::Message chat(
         const std::vector<core::Message>& messages,
         const nlohmann::json& toolsSpec
-    ) const;
+    ) const override;
 
 private:
     LlmConfig config_;

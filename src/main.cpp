@@ -252,20 +252,60 @@ void printMcpDemo() {
 
 void printStatusUi(const cpp_ai_agent::config::AppConfig& config) {
     using namespace ftxui;
+    auto apiBase = config.llm.baseUrl;
+    const std::string httpsPrefix = "https://";
+    const std::string httpPrefix = "http://";
+    if (apiBase.rfind(httpsPrefix, 0) == 0) {
+        apiBase = apiBase.substr(httpsPrefix.size());
+    } else if (apiBase.rfind(httpPrefix, 0) == 0) {
+        apiBase = apiBase.substr(httpPrefix.size());
+    }
 
-    auto document = window(
-        text("cpp-ai-agent M5 status"),
+    auto conversation = window(
+        text("Conversation"),
+        vbox({
+            text("system> cpp-ai-agent is ready"),
+            text("user> Read README.md"),
+            text("assistant> I can inspect workspace files with tools."),
+        })
+    );
+
+    auto tools = window(
+        text("Tools"),
+        vbox({
+            text("read_file     safe"),
+            text("write_file    confirm"),
+            text("edit_file     confirm"),
+            text("run_command   guarded"),
+        })
+    );
+
+    auto status = window(
+        text("Status"),
         vbox({
             text("LLM: " + config.llm.model),
-            text("Base URL: " + config.llm.baseUrl),
+            text("API: " + apiBase),
             text("Workspace: " + config.workspaceRoot),
             text("History: " + config.historyDir),
-            separator(),
-            text("Capabilities"),
-            text("- Chat with OpenAI-compatible APIs"),
-            text("- Tool calls: read/write/edit files, run commands"),
-            text("- Permission confirmation and JSONL logs"),
-            text("- History replay, config diagnostics, provider templates"),
+        })
+    );
+
+    auto input = window(
+        text("Input"),
+        text("Type a message. /exit quits.")
+    );
+
+    auto document = window(
+        text("cpp-ai-agent M5 TUI"),
+        vbox({
+            hbox({
+                conversation | flex,
+                tools | flex,
+            }),
+            hbox({
+                status | flex,
+                input | flex,
+            }),
         })
     );
 
