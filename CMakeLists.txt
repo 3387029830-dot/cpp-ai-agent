@@ -20,10 +20,14 @@ find_package(ftxui CONFIG REQUIRED)
 add_executable(ai-agent
     src/agent/AgentLoop.cpp
     src/config/AppConfig.cpp
+    src/core/ContextManager.cpp
     src/core/Message.cpp
     src/core/Session.cpp
     src/diagnostics/Diagnostics.cpp
     src/llm/LlmClient.cpp
+    src/llm/LlmParsing.cpp
+    src/mcp/McpClient.cpp
+    src/mcp/McpToolAdapter.cpp
     src/security/PermissionManager.cpp
     src/storage/HistoryReader.cpp
     src/storage/JsonLogger.cpp
@@ -31,6 +35,7 @@ add_executable(ai-agent
     src/tools/PathUtils.cpp
     src/tools/ShellTool.cpp
     src/tools/ToolRegistry.cpp
+    src/ui/Console.cpp
     src/main.cpp
 )
 
@@ -47,14 +52,21 @@ target_link_libraries(ai-agent PRIVATE
 )
 
 if(MSVC)
-    target_compile_options(ai-agent PRIVATE /W4 /permissive-)
+    target_compile_options(ai-agent PRIVATE /W4 /permissive- /utf-8)
 else()
     target_compile_options(ai-agent PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
 add_executable(ai-agent-tests
     src/config/AppConfig.cpp
+    src/agent/AgentLoop.cpp
+    src/core/ContextManager.cpp
+    src/core/Message.cpp
+    src/core/Session.cpp
     src/diagnostics/Diagnostics.cpp
+    src/llm/LlmParsing.cpp
+    src/mcp/McpClient.cpp
+    src/mcp/McpToolAdapter.cpp
     src/security/PermissionManager.cpp
     src/storage/HistoryReader.cpp
     src/storage/JsonLogger.cpp
@@ -64,7 +76,11 @@ add_executable(ai-agent-tests
     src/tools/ToolRegistry.cpp
     tests/config_tests.cpp
     tests/diagnostics_tests.cpp
+    tests/agent_loop_tests.cpp
+    tests/context_manager_tests.cpp
     tests/history_tests.cpp
+    tests/llm_parsing_tests.cpp
+    tests/mcp_tests.cpp
     tests/security_tests.cpp
     tests/tools_tests.cpp
 )

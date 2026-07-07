@@ -4,18 +4,19 @@
 #include "core/Session.h"
 #include "diagnostics/Diagnostics.h"
 #include "llm/LlmClient.h"
+#include "mcp/McpClient.h"
+#include "mcp/McpToolAdapter.h"
 #include "security/PermissionManager.h"
 #include "storage/HistoryReader.h"
 #include "storage/JsonLogger.h"
 #include "tools/FileTools.h"
 #include "tools/ShellTool.h"
 #include "tools/ToolRegistry.h"
+#include "ui/Console.h"
 
 #include <exception>
 #include <filesystem>
 #include <fstream>
-#include <ftxui/dom/elements.hpp>
-#include <ftxui/screen/screen.hpp>
 #include <iostream>
 #include <memory>
 #include <nlohmann/json.hpp>
@@ -241,37 +242,205 @@ void printSkills(const std::filesystem::path& path) {
     }
 }
 
-void printMcpDemo() {
-    std::cout << "mcp-demo> mock MCP client demonstration\n";
-    std::cout << "mcp-demo> server: local-filesystem-mock\n";
-    std::cout << "mcp-demo> tool: read_file\n";
-    std::cout << "mcp-demo> request: {\"path\":\"README.md\"}\n";
-    std::cout << "mcp-demo> response: routed to local ToolRegistry in this demo build\n";
-    std::cout << "mcp-demo> boundary: real MCP transport is planned as a future extension.\n";
+void printMcpServerInfo(const cpp_ai_agent::mcp::McpServerInfo& info) {
+    std::cout << "mcp> connected\n";
+    std::cout << "mcp> protocol: " << info.protocolVersion << "\n";
+    std::cout << "mcp> server: " << info.name << " " << info.version << "\n";
+    if (!info.instructions.empty()) {
+        std::cout << "mcp> instructions: " << info.instructions << "\n";
+    }
+
+    if (info.tools.empty()) {
+        std::cout << "mcp> tools: (none)\n";
+        return;
+    }
+
+    std::cout << "mcp> tools:\n";
+    for (const auto& tool : info.tools) {
+        std::cout << "  - " << tool.name;
+        if (!tool.description.empty()) {
+            std::cout << ": " << tool.description;
+        }
+        std::cout << "\n";
+    }
 }
 
-void printStatusUi(const cpp_ai_agent::config::AppConfig& config) {
-    using namespace ftxui;
+void printMcpDemo(const std::string& executablePath) {
+    std::cout << "mcp-demo> starting built-in stdio MCP test server\n";
+    cpp_ai_agent::mcp::StdioMcpClient client({executablePath, "/mcp-test-server"});
+    printMcpServerInfo(client.discoverTools());
+    std::cout << "mcp-demo> this is a real initialize + tools/list stdio handshake\n";
+    std::cout << "mcp-demo> use /mcp-connect <command> [args...] to inspect an external stdio MCP server\n";
+}
 
-    auto document = window(
-        text("cpp-ai-agent M5 status"),
-        vbox({
-            text("LLM: " + config.llm.model),
-            text("Base URL: " + config.llm.baseUrl),
-            text("Workspace: " + config.workspaceRoot),
-            text("History: " + config.historyDir),
-            separator(),
-            text("Capabilities"),
-            text("- Chat with OpenAI-compatible APIs"),
-            text("- Tool calls: read/write/edit files, run commands"),
-            text("- Permission confirmation and JSONL logs"),
-            text("- History replay, config diagnostics, provider templates"),
-        })
-    );
+void printMcpCallDemo(const std::string& executablePath) {
+    std::cout << "mcp-call-demo> starting built-in stdio MCP test server\n";
+    cpp_ai_agent::mcp::StdioMcpClient client({executablePath, "/mcp-test-server"});
+    const auto echo = client.callTool("echo", {{"text", "hello from cpp-ai-agent"}});
+    std::cout << "mcp-call-demo> echo => " << echo.text << "\n";
 
-    auto screen = Screen::Create(Dimension::Fit(document));
-    Render(screen, document);
-    screen.Print();
+    const auto projectInfo = client.callTool("project_info", nlohmann::json::object());
+    std::cout << "mcp-call-demo> project_info => " << projectInfo.text << "\n";
+    std::cout << "mcp-call-demo> this is a real tools/call round trip\n";
+}
+
+void registerBuiltInMcpTools(
+    cpp_ai_agent::tools::ToolRegistry& tools,
+    const std::string& executablePath
+) {
+    const std::vector<std::string> command = {executablePath, "/mcp-test-server"};
+    cpp_ai_agent::mcp::StdioMcpClient client(command);
+    const auto info = client.discoverTools();
+
+    for (const auto& tool : info.tools) {
+        tools.registerTool(std::make_shared<cpp_ai_agent::mcp::McpToolAdapter>(
+            command,
+            "mcp_" + tool.name,
+            tool
+        ));
+    }
+}
+
+void registerConfiguredMcpTools(
+    cpp_ai_agent::tools::ToolRegistry& tools,
+    const std::filesystem::path& configPath
+) {
+    if (!std::filesystem::exists(configPath)) {
+        return;
+    }
+
+    std::ifstream input(configPath);
+    if (!input) {
+        std::cout << "warning> failed to open " << configPath.string() << "\n";
+        return;
+    }
+
+    const auto config = nlohmann::json::parse(input);
+    for (const auto& server : config.value("servers", nlohmann::json::array())) {
+        if (!server.value("enabled", false)) {
+            continue;
+        }
+
+        const auto serverName = server.value("name", "");
+        const auto command = server.value("command", "");
+        if (serverName.empty() || command.empty()) {
+            std::cout << "warning> skipped MCP server with missing name or command\n";
+            continue;
+        }
+
+        std::vector<std::string> mcpCommand = {command};
+        for (const auto& arg : server.value("args", nlohmann::json::array())) {
+            mcpCommand.push_back(arg.get<std::string>());
+        }
+
+        try {
+            cpp_ai_agent::mcp::StdioMcpClient client(mcpCommand);
+            const auto info = client.discoverTools();
+            for (const auto& tool : info.tools) {
+                tools.registerTool(std::make_shared<cpp_ai_agent::mcp::McpToolAdapter>(
+                    mcpCommand,
+                    cpp_ai_agent::mcp::makeMcpToolName(serverName, tool.name),
+                    tool
+                ));
+            }
+            std::cout << "mcp> registered " << info.tools.size() << " tools from " << serverName << "\n";
+        } catch (const std::exception& ex) {
+            std::cout << "warning> MCP server '" << serverName << "' unavailable: " << ex.what() << "\n";
+        }
+    }
+}
+
+int runMcpTestServer() {
+    std::string line;
+    while (std::getline(std::cin, line)) {
+        if (line.empty()) {
+            continue;
+        }
+
+        const auto request = nlohmann::json::parse(line);
+        const auto method = request.value("method", "");
+        if (!request.contains("id")) {
+            continue;
+        }
+
+        const auto id = request.at("id");
+        if (method == "initialize") {
+            nlohmann::json response = {
+                {"jsonrpc", "2.0"},
+                {"id", id},
+                {"result",
+                 {
+                     {"protocolVersion", "2025-03-26"},
+                     {"capabilities", {{"tools", {{"listChanged", false}}}}},
+                     {"serverInfo", {{"name", "cpp-ai-agent-test-mcp"}, {"version", "0.1.0"}}},
+                     {"instructions", "Built-in MCP test server for cpp-ai-agent demos."},
+                 }},
+            };
+            std::cout << response.dump() << std::endl;
+        } else if (method == "tools/list") {
+            nlohmann::json response = {
+                {"jsonrpc", "2.0"},
+                {"id", id},
+                {"result",
+                 {
+                     {"tools",
+                      nlohmann::json::array({
+                          {
+                              {"name", "echo"},
+                              {"description", "Echo text back to the caller."},
+                              {"inputSchema",
+                               {
+                                   {"type", "object"},
+                                   {"properties", {{"text", {{"type", "string"}}}}},
+                                   {"required", nlohmann::json::array({"text"})},
+                               }},
+                          },
+                          {
+                              {"name", "project_info"},
+                              {"description", "Return basic information about cpp-ai-agent."},
+                              {"inputSchema", {{"type", "object"}, {"properties", nlohmann::json::object()}}},
+                          },
+                      })},
+                 }},
+            };
+            std::cout << response.dump() << std::endl;
+        } else if (method == "tools/call") {
+            const auto params = request.value("params", nlohmann::json::object());
+            const auto toolName = params.value("name", "");
+            const auto arguments = params.value("arguments", nlohmann::json::object());
+
+            std::string text;
+            bool isError = false;
+            if (toolName == "echo") {
+                text = arguments.value("text", "");
+            } else if (toolName == "project_info") {
+                text = "cpp-ai-agent: C++17 terminal AI coding agent with local tools and MCP demo support.";
+            } else {
+                isError = true;
+                text = "Unknown tool: " + toolName;
+            }
+
+            nlohmann::json response = {
+                {"jsonrpc", "2.0"},
+                {"id", id},
+                {"result",
+                 {
+                     {"content", nlohmann::json::array({{{"type", "text"}, {"text", text}}})},
+                     {"isError", isError},
+                 }},
+            };
+            std::cout << response.dump() << std::endl;
+        } else {
+            nlohmann::json response = {
+                {"jsonrpc", "2.0"},
+                {"id", id},
+                {"error", {{"code", -32601}, {"message", "Method not found"}}},
+            };
+            std::cout << response.dump() << std::endl;
+        }
+    }
+
+    return 0;
 }
 
 }  // namespace
@@ -294,11 +463,12 @@ int main(int argc, char* argv[]) {
     using cpp_ai_agent::tools::ShellTool;
     using cpp_ai_agent::tools::ToolRegistry;
     using cpp_ai_agent::tools::WriteFileTool;
+    using cpp_ai_agent::ui::Console;
+    using cpp_ai_agent::ui::detectColorSupport;
+    using cpp_ai_agent::ui::detectInteractiveOutput;
 
     const auto consoleEncoding = configureConsoleEncoding();
-
-    std::cout << "cpp-ai-agent M5 is running.\n";
-    std::cout << "Type a message and press Enter. Type /exit to quit.\n\n";
+    Console console(detectColorSupport(), detectInteractiveOutput());
 
     try {
         const auto appConfig = loadAppConfig("config/settings.json");
@@ -325,7 +495,12 @@ int main(int argc, char* argv[]) {
             }
 
             if (command == "/ui") {
-                printStatusUi(appConfig);
+                console.printUiOverview(
+                    appConfig.llm.model,
+                    appConfig.llm.baseUrl,
+                    appConfig.workspaceRoot,
+                    appConfig.historyDir
+                );
                 return 0;
             }
 
@@ -340,7 +515,39 @@ int main(int argc, char* argv[]) {
             }
 
             if (command == "/mcp-demo") {
-                printMcpDemo();
+                printMcpDemo(argv[0]);
+                return 0;
+            }
+
+            if (command == "/mcp-call-demo") {
+                printMcpCallDemo(argv[0]);
+                return 0;
+            }
+
+            if (command == "/mcp-connect") {
+                if (argc < 3) {
+                    std::cout << "usage> ai-agent.exe /mcp-connect <command> [args...]\n";
+                    std::cout << "example> ai-agent.exe /mcp-connect npx -y @modelcontextprotocol/server-filesystem .\n";
+                    return 1;
+                }
+
+                std::vector<std::string> mcpCommand;
+                for (int i = 2; i < argc; ++i) {
+                    mcpCommand.emplace_back(argv[i]);
+                }
+                cpp_ai_agent::mcp::StdioMcpClient client(std::move(mcpCommand));
+                printMcpServerInfo(client.discoverTools());
+                return 0;
+            }
+
+            if (command == "/mcp-test-server") {
+                return runMcpTestServer();
+            }
+
+            if (command == "/mcp") {
+                std::cout << "usage> ai-agent.exe /mcp-demo\n";
+                std::cout << "usage> ai-agent.exe /mcp-call-demo\n";
+                std::cout << "usage> ai-agent.exe /mcp-connect <command> [args...]\n";
                 return 0;
             }
 
@@ -385,14 +592,17 @@ int main(int argc, char* argv[]) {
         tools.registerTool(std::make_shared<WriteFileTool>(std::filesystem::path(appConfig.workspaceRoot)));
         tools.registerTool(std::make_shared<EditFileTool>(std::filesystem::path(appConfig.workspaceRoot)));
         tools.registerTool(std::make_shared<ShellTool>());
+        registerBuiltInMcpTools(tools, argv[0]);
+        registerConfiguredMcpTools(tools, "config/mcp_servers.json");
 
         PermissionManager permissions(
             appConfig.permissionMode,
-            [](const PermissionRequest& request) {
-                std::cout << "\npermission> allow tool '" << request.toolName << "' (risk="
-                          << cpp_ai_agent::security::riskLevelToString(request.risk) << ")?\n";
-                std::cout << "arguments> " << request.arguments << "\n";
-                std::cout << "type yes to allow> ";
+            [&console](const PermissionRequest& request) {
+                console.printPermissionPrompt(
+                    request.toolName,
+                    cpp_ai_agent::security::riskLevelToString(request.risk),
+                    request.arguments
+                );
 
                 std::string answer;
                 if (!std::getline(std::cin, answer)) {
@@ -403,7 +613,8 @@ int main(int argc, char* argv[]) {
             }
         );
         JsonLogger logger(std::filesystem::path(appConfig.historyDir));
-        std::cout << "log> " << logger.path().string() << "\n";
+        console.printBanner(appConfig.llm.model, appConfig.workspaceRoot);
+        std::cout << "log> " << logger.path().string() << "\n\n";
 
         cpp_ai_agent::agent::AgentLoop agentLoop(
             llm,
@@ -411,15 +622,18 @@ int main(int argc, char* argv[]) {
             permissions,
             logger,
             appConfig.maxIterations,
-            [](const cpp_ai_agent::agent::AgentEvent& event) {
+            [&console, &tools](const cpp_ai_agent::agent::AgentEvent& event) {
                 using cpp_ai_agent::agent::AgentEventType;
 
                 if (event.type == AgentEventType::ToolCall) {
-                    std::cout << "tool_call> " << event.title << " " << event.detail << "\n";
+                    const auto* tool = tools.find(event.title);
+                    const auto risk =
+                        tool == nullptr ? "unknown" : cpp_ai_agent::security::riskLevelToString(tool->risk());
+                    console.printToolCall(event.title, event.detail, risk);
                 } else if (event.type == AgentEventType::ToolResult) {
-                    std::cout << "tool_result> " << event.title << ": " << event.detail << "\n";
+                    console.printToolResult(event.title, event.detail);
                 } else if (event.type == AgentEventType::Warning) {
-                    std::cout << "warning> " << event.detail << "\n";
+                    console.printWarning(event.detail);
                 }
             }
         );
@@ -435,7 +649,7 @@ int main(int argc, char* argv[]) {
 
         std::string input;
         while (true) {
-            std::cout << "user> ";
+            std::cout << "› ";
 
             if (!std::getline(std::cin, input)) {
                 std::cout << "\n";
@@ -451,19 +665,20 @@ int main(int argc, char* argv[]) {
             }
 
             input = convertToUtf8(input, consoleEncoding);
+            console.printUser(input);
             session.addMessage(makeMessage(Role::User, input));
             logger.log("user_message", {{"content", input}});
 
             try {
                 const auto reply = agentLoop.runTurn(session);
-                std::cout << "assistant> " << reply.content << "\n";
+                console.printAssistant(reply.content);
             } catch (const std::exception& ex) {
-                std::cout << "error> " << ex.what() << "\n";
+                console.printError(ex.what());
                 std::cout << "hint> Check OPENAI_API_KEY, config/settings.json, and network access.\n";
             }
         }
     } catch (const std::exception& ex) {
-        std::cout << "startup error> " << ex.what() << "\n";
+        console.printError(std::string("startup: ") + ex.what());
         std::cout << "hint> Set OPENAI_API_KEY before starting the program.\n";
         std::cout << "      PowerShell example: $env:OPENAI_API_KEY='your_key'\n";
         return 1;

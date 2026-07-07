@@ -6,7 +6,9 @@
 
 ## 当前状态
 
-当前处于 M4 阶段：项目骨架已建立，CMake + vcpkg 可以配置、安装依赖、编译运行；M1 已完成 OpenAI 兼容格式 API 的真实对话验证，M2 已完成本地工具系统第一版，M3 已接入 Agent 主循环，M4 已完成权限确认、JSON 日志和历史回放第一版。
+当前版本：v0.1.0。项目已完成 M0-M5 演示版闭环：CMake + vcpkg 构建、OpenAI 兼容 API 对话、工具调用、权限确认、JSONL 日志、历史回放、配置诊断、ANSI 增强流式控制台界面和答辩材料。
+
+在 v0.1.0 交付版之后，本地增强了 AgentLoop 的可测试性、终端呈现和 MCP 集成：新增 `ContextManager` 上下文窗口、可注入的 `ILlmClient` 接口、独立 `tool_calls` 解析测试、Agent 主循环 mock LLM 自动化测试、`src/ui/Console.*` 流式控制台呈现模块，以及可由模型自动调用的内置 MCP 工具。
 
 ## 快速开始
 
@@ -95,6 +97,25 @@ copy examples\env.deepseek.example .env
 
 生成后打开 `.env`，把占位 API Key 换成真实 Key。
 
+可选：启用外部 stdio MCP server。
+
+编辑 `config/mcp_servers.json`，把对应 server 的 `enabled` 改为 `true`。程序启动时会自动连接启用的 server，发现工具，并注册成 `mcp_<server>_<tool>` 形式供模型调用。
+
+示例：
+
+```json
+{
+  "servers": [
+    {
+      "name": "filesystem",
+      "enabled": true,
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]
+    }
+  ]
+}
+```
+
 ### 3. 构建和运行
 
 构建并运行：
@@ -114,6 +135,29 @@ $env:OPENAI_API_KEY="你的 API Key"
 程序读取配置的优先级为：系统环境变量 > `.env` > `config/settings.json`。
 
 如果 `cmake --preset` 提示找不到编译器，请在 “x64 Native Tools Command Prompt for VS” 里运行同样命令，或先执行本机 Visual Studio 的 `VsDevCmd.bat`。
+
+### 4. 一键验收流程
+
+```powershell
+cmake --preset msvc-vcpkg-debug
+cmake --build --preset msvc-vcpkg-debug
+cd build\msvc-vcpkg-debug
+ctest --output-on-failure
+cd ..\..
+.\build\msvc-vcpkg-debug\ai-agent.exe /doctor
+.\build\msvc-vcpkg-debug\ai-agent.exe /demo
+```
+
+可选演示：
+
+```powershell
+.\build\msvc-vcpkg-debug\ai-agent.exe /ui
+.\build\msvc-vcpkg-debug\ai-agent.exe /skills
+.\build\msvc-vcpkg-debug\ai-agent.exe /mcp-demo
+.\build\msvc-vcpkg-debug\ai-agent.exe /mcp-call-demo
+.\build\msvc-vcpkg-debug\ai-agent.exe /mcp-connect <command> [args...]
+.\build\msvc-vcpkg-debug\ai-agent.exe /history
+```
 
 查看和回放历史：
 
@@ -135,6 +179,8 @@ $env:OPENAI_API_KEY="你的 API Key"
 .\build\msvc-vcpkg-debug\ai-agent.exe /search
 .\build\msvc-vcpkg-debug\ai-agent.exe /skills
 .\build\msvc-vcpkg-debug\ai-agent.exe /mcp-demo
+.\build\msvc-vcpkg-debug\ai-agent.exe /mcp-call-demo
+.\build\msvc-vcpkg-debug\ai-agent.exe /mcp-connect <command> [args...]
 ```
 
 诊断当前配置：
@@ -153,11 +199,14 @@ $env:OPENAI_MODEL="gpt-5.4-mini"
 ## 核心目标
 
 - 建立完整 Agent 主循环：输入、模型决策、工具调用、结果回填、多轮执行。
+- 通过 `ContextManager` 保留 system prompt 并限制发送给模型的上下文窗口。
 - 提供插件式工具系统，支持文件工具、命令工具、搜索工具等扩展。
 - 接入 OpenAI 兼容格式的大模型 API。
+- 提供最小 MCP stdio 客户端，支持初始化、工具列表发现和基础工具调用；内置 MCP 工具会注册进 AgentLoop，可由模型自动调用。
+- 可从 `config/mcp_servers.json` 读取外部 stdio MCP server，自动发现并注册工具。
 - 加入权限确认，避免模型直接执行高风险操作。
 - 记录执行日志，支持历史回放和答辩演示。
-- 使用 TUI 展示对话、工具调用、状态和结果。
+- 使用 ANSI 增强的流式控制台展示对话、工具调用、权限确认、状态和结果。
 
 ## 技术栈
 
@@ -169,7 +218,7 @@ $env:OPENAI_MODEL="gpt-5.4-mini"
 | 编译器 | MSVC / Visual Studio Build Tools |
 | HTTP | cpr |
 | JSON | nlohmann/json |
-| TUI | FTXUI |
+| 终端呈现 | ANSI 流式控制台，保留 FTXUI 依赖用于兼容早期演示 |
 | 测试 | doctest 或 Catch2 |
 | 存储 | JSON 文件 |
 
@@ -215,13 +264,19 @@ cpp-ai-agent/
 | `vcpkg.json` | vcpkg 依赖清单，声明第三方库 |
 | `.env.example` | 环境变量样例，不存放真实密钥 |
 | `.env` | 本地真实环境变量文件，不提交到 Git |
+| `config/mcp_servers.json` | 外部 stdio MCP server 配置，默认示例为禁用状态 |
 | `.clang-format` | C++ 代码格式化规则 |
 | `config/` | 程序运行配置 |
 | `docs/` | 项目文档 |
 | `src/` | C++ 源代码 |
 | `src/agent/` | Agent 主循环，负责模型工具调用和结果回填 |
+| `src/core/ContextManager.*` | 构建发送给模型的上下文窗口 |
+| `src/llm/LlmParsing.*` | 解析 OpenAI-compatible `tool_calls` 响应 |
+| `src/mcp/McpClient.*` | 最小 MCP stdio 客户端，负责初始化、工具列表发现和基础工具调用 |
+| `src/mcp/McpToolAdapter.*` | 将 MCP tool 包装成项目内 `ITool`，注册进 AgentLoop |
 | `src/security/` | 权限确认和危险命令拦截 |
 | `src/storage/` | JSONL 会话日志 |
+| `src/ui/Console.*` | ANSI 增强流式控制台呈现 |
 | `tests/` | 单元测试代码 |
 | `build/` | 构建产物目录，不提交到 Git |
 
@@ -234,6 +289,9 @@ cpp-ai-agent/
 - [开发计划书](docs/03-开发计划书.md)
 - [演示说明](docs/04-演示说明.md)
 - [答辩提纲](docs/05-答辩提纲.md)
+- [测试报告](docs/06-测试报告.md)
+- [项目总结](docs/07-项目总结.md)
+- [版本日志](docs/08-版本日志.md)
 
 ## 里程碑
 

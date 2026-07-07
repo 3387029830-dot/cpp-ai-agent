@@ -1,0 +1,14 @@
+{
+  "servers": [
+    {
+      "name": "filesystem",
+      "enabled": false,
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "."
+      ]
+    }
+  ]
+}
