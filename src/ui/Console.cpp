@@ -158,7 +158,10 @@ void Console::printPermissionPrompt(
         printIndented(preview);
         std::cout << color(reset);
     }
-    std::cout << color(yellow) << "  type yes to allow> " << color(reset);
+    std::cout << "\n";
+    std::cout << "  [y] yes  apply this change\n";
+    std::cout << "  [n] no   reject this change\n";
+    std::cout << color(yellow) << "  choose [y/N]> " << color(reset);
 }
 
 void Console::printWarning(const std::string& text) const {
