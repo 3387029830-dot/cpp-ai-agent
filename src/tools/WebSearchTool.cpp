@@ -71,6 +71,30 @@ std::string explainSearchError(const std::string& message, const std::string& pr
     return output.str();
 }
 
+std::string formatSearchFallback(
+    const std::string& query,
+    const std::string& reason,
+    const std::string& proxyUrl
+) {
+    std::ostringstream output;
+    output << "Web search unavailable\n";
+    output << "Query: " << query << "\n";
+    output << "Provider: DuckDuckGo Instant Answer\n";
+    output << "Reason: " << reason << "\n\n";
+    output << "Fallback links\n";
+    output << "1. DuckDuckGo: https://duckduckgo.com/?q=" << urlEncode(query) << "\n";
+    output << "2. Bing: https://www.bing.com/search?q=" << urlEncode(query) << "\n\n";
+    if (!proxyUrl.empty()) {
+        output << "Hint: Web search is using proxy " << proxyUrl
+               << ". If that local proxy is not running, clear web_search.proxy_url in config/settings.json "
+               << "or set WEB_SEARCH_PROXY_URL to a reachable proxy.\n";
+    } else {
+        output << "Hint: Check network access to https://api.duckduckgo.com/. "
+               << "If your network requires a proxy, set WEB_SEARCH_PROXY_URL.\n";
+    }
+    return output.str();
+}
+
 }  // namespace
 
 WebSearchTool::WebSearchTool(std::string proxyUrl)
@@ -139,12 +163,20 @@ ToolResult WebSearchTool::execute(const nlohmann::json& args) const {
 
         const auto response = session.Get();
         if (response.error) {
-            throw std::runtime_error(
-                explainSearchError("web search request failed: " + response.error.message, proxyUrl_)
-            );
+            const auto reason = "web search request failed: " + response.error.message;
+            return {
+                true,
+                formatSearchFallback(query, reason, proxyUrl_),
+                "Web search fallback: " + query,
+            };
         }
         if (response.status_code < 200 || response.status_code >= 300) {
-            throw std::runtime_error("web search returned HTTP " + std::to_string(response.status_code));
+            const auto reason = "web search returned HTTP " + std::to_string(response.status_code);
+            return {
+                true,
+                formatSearchFallback(query, reason, proxyUrl_),
+                "Web search fallback: " + query,
+            };
         }
 
         const auto body = nlohmann::json::parse(response.text);
