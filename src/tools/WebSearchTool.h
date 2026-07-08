@@ -26,4 +26,10 @@ std::string formatDuckDuckGoResults(
     int maxResults
 );
 
+std::string formatBingRssResults(
+    const std::string& query,
+    const std::string& rss,
+    int maxResults
+);
+
 }  // namespace cpp_ai_agent::tools

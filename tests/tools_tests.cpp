@@ -190,3 +190,24 @@ TEST_CASE("WebSearchTool formats structured search results") {
     const auto fallback = cpp_ai_agent::tools::formatDuckDuckGoResults("cpp agent + mcp", nlohmann::json::object(), 2);
     CHECK(fallback.find("Search URL: https://duckduckgo.com/?q=cpp%20agent%20%2B%20mcp") != std::string::npos);
 }
+
+TEST_CASE("WebSearchTool formats Bing RSS results") {
+    const std::string rss =
+        R"(<?xml version="1.0" encoding="utf-8" ?>)"
+        R"(<rss><channel>)"
+        R"(<item><title>C++ - Wikipedia</title><link>https://example.test/cpp</link>)"
+        R"(<description>C++ is a general-purpose programming language.</description></item>)"
+        R"(<item><title>CMake &amp; vcpkg</title><link>https://example.test/build</link>)"
+        R"(<description>Build tools for C++ projects.</description></item>)"
+        R"(</channel></rss>)";
+
+    const auto formatted = cpp_ai_agent::tools::formatBingRssResults("C++ programming", rss, 2);
+
+    CHECK(formatted.find("Provider: Bing RSS") != std::string::npos);
+    CHECK(formatted.find("1. C++ - Wikipedia") != std::string::npos);
+    CHECK(formatted.find("2. CMake & vcpkg") != std::string::npos);
+    CHECK(formatted.find("URL: https://example.test/build") != std::string::npos);
+
+    const auto fallback = cpp_ai_agent::tools::formatBingRssResults("cpp agent + mcp", "", 2);
+    CHECK(fallback.find("Search URL: https://www.bing.com/search?q=cpp%20agent%20%2B%20mcp") != std::string::npos);
+}
