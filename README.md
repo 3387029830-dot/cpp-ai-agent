@@ -186,7 +186,7 @@ cd ..\..
 .\build\msvc-vcpkg-debug\ai-agent.exe /mcp-connect <command> [args...]
 ```
 
-`/search` 使用独立的 Web 搜索代理配置，默认不走代理。如果你的网络需要代理，可以改 `config/settings.json` 中的 `web_search.proxy_url`，或在当前 PowerShell 里覆盖：
+`/search` 使用独立的 Web 搜索代理配置，默认不走代理。搜索会优先尝试 Bing RSS，再尝试 DuckDuckGo Instant Answer；如果两个入口都不可用，会降级输出可手动打开的搜索链接。如果你的网络需要代理，可以改 `config/settings.json` 中的 `web_search.proxy_url`，或在当前 PowerShell 里覆盖：
 
 ```powershell
 $env:WEB_SEARCH_PROXY_URL="http://127.0.0.1:7897"
