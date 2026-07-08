@@ -37,6 +37,43 @@ std::string cleanText(std::string value) {
     return value;
 }
 
+void replaceAll(std::string& value, const std::string& from, const std::string& to) {
+    if (from.empty()) {
+        return;
+    }
+    std::size_t position = 0;
+    while ((position = value.find(from, position)) != std::string::npos) {
+        value.replace(position, from.size(), to);
+        position += to.size();
+    }
+}
+
+std::string decodeXmlText(std::string value) {
+    replaceAll(value, "<![CDATA[", "");
+    replaceAll(value, "]]>", "");
+    replaceAll(value, "&amp;", "&");
+    replaceAll(value, "&lt;", "<");
+    replaceAll(value, "&gt;", ">");
+    replaceAll(value, "&quot;", "\"");
+    replaceAll(value, "&apos;", "'");
+    return cleanText(value);
+}
+
+std::string tagValue(const std::string& block, const std::string& tag) {
+    const auto open = "<" + tag + ">";
+    const auto close = "</" + tag + ">";
+    const auto begin = block.find(open);
+    if (begin == std::string::npos) {
+        return {};
+    }
+    const auto valueBegin = begin + open.size();
+    const auto end = block.find(close, valueBegin);
+    if (end == std::string::npos) {
+        return {};
+    }
+    return decodeXmlText(block.substr(valueBegin, end - valueBegin));
+}
+
 bool isUrlUnreserved(unsigned char ch) {
     return (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') ||
            ch == '-' || ch == '_' || ch == '.' || ch == '~';
@@ -140,6 +177,39 @@ ToolResult WebSearchTool::execute(const nlohmann::json& args) const {
 
         const auto maxResults = (std::max)(1, (std::min)(10, args.value("max_results", 5)));
 
+        std::vector<std::string> errors;
+
+        cpr::Session bingSession;
+        bingSession.SetUrl(cpr::Url{"https://www.bing.com/search"});
+        bingSession.SetParameters(cpr::Parameters{
+            {"q", query},
+            {"format", "rss"},
+        });
+        bingSession.SetHeader(cpr::Header{{"Accept", "application/rss+xml, application/xml, text/xml"}});
+        bingSession.SetTimeout(cpr::Timeout{10000});
+#ifdef _WIN32
+        bingSession.SetSslOptions(cpr::Ssl(cpr::ssl::NoRevoke{true}));
+#endif
+        if (!proxyUrl_.empty()) {
+            bingSession.SetProxies(cpr::Proxies{
+                {"http", proxyUrl_},
+                {"https", proxyUrl_},
+            });
+        }
+
+        const auto bingResponse = bingSession.Get();
+        if (!bingResponse.error && bingResponse.status_code >= 200 && bingResponse.status_code < 300) {
+            const auto formatted = formatBingRssResults(query, bingResponse.text, maxResults);
+            if (formatted.find("(no structured results returned)") == std::string::npos) {
+                return {true, formatted, "Web search: " + query};
+            }
+            errors.push_back("Bing RSS returned no structured results");
+        } else if (bingResponse.error) {
+            errors.push_back("Bing RSS failed: " + bingResponse.error.message);
+        } else {
+            errors.push_back("Bing RSS returned HTTP " + std::to_string(bingResponse.status_code));
+        }
+
         cpr::Session session;
         session.SetUrl(cpr::Url{"https://api.duckduckgo.com/"});
         session.SetParameters(cpr::Parameters{
@@ -163,18 +233,32 @@ ToolResult WebSearchTool::execute(const nlohmann::json& args) const {
 
         const auto response = session.Get();
         if (response.error) {
-            const auto reason = "web search request failed: " + response.error.message;
+            errors.push_back("DuckDuckGo failed: " + response.error.message);
+            std::ostringstream reason;
+            for (std::size_t i = 0; i < errors.size(); ++i) {
+                if (i > 0) {
+                    reason << "; ";
+                }
+                reason << errors.at(i);
+            }
             return {
                 true,
-                formatSearchFallback(query, reason, proxyUrl_),
+                formatSearchFallback(query, reason.str(), proxyUrl_),
                 "Web search fallback: " + query,
             };
         }
         if (response.status_code < 200 || response.status_code >= 300) {
-            const auto reason = "web search returned HTTP " + std::to_string(response.status_code);
+            errors.push_back("DuckDuckGo returned HTTP " + std::to_string(response.status_code));
+            std::ostringstream reason;
+            for (std::size_t i = 0; i < errors.size(); ++i) {
+                if (i > 0) {
+                    reason << "; ";
+                }
+                reason << errors.at(i);
+            }
             return {
                 true,
-                formatSearchFallback(query, reason, proxyUrl_),
+                formatSearchFallback(query, reason.str(), proxyUrl_),
                 "Web search fallback: " + query,
             };
         }
@@ -185,6 +269,58 @@ ToolResult WebSearchTool::execute(const nlohmann::json& args) const {
     } catch (const std::exception& ex) {
         return {false, ex.what(), std::string("Tool failed: ") + ex.what()};
     }
+}
+
+std::string formatBingRssResults(
+    const std::string& query,
+    const std::string& rss,
+    int maxResults
+) {
+    std::ostringstream output;
+    output << "Web search results\n";
+    output << "Query: " << query << "\n";
+    output << "Provider: Bing RSS\n\n";
+    output << "Results\n";
+
+    int count = 0;
+    std::size_t position = 0;
+    while (count < maxResults) {
+        const auto itemBegin = rss.find("<item>", position);
+        if (itemBegin == std::string::npos) {
+            break;
+        }
+        const auto itemEnd = rss.find("</item>", itemBegin);
+        if (itemEnd == std::string::npos) {
+            break;
+        }
+
+        const auto item = rss.substr(itemBegin, itemEnd - itemBegin);
+        const auto title = tagValue(item, "title");
+        const auto link = tagValue(item, "link");
+        const auto description = tagValue(item, "description");
+        position = itemEnd + 7;
+
+        if (title.empty() && link.empty() && description.empty()) {
+            continue;
+        }
+
+        ++count;
+        output << count << ". " << (title.empty() ? "(no title)" : title) << "\n";
+        if (!description.empty()) {
+            output << "   Summary: " << description << "\n";
+        }
+        if (!link.empty()) {
+            output << "   URL: " << link << "\n";
+        }
+    }
+
+    if (count == 0) {
+        output << "(no structured results returned)\n";
+        output << "Search URL: https://www.bing.com/search?q=" << urlEncode(query) << "\n";
+    }
+
+    output << "\n整理建议: 使用编号结果作为引用来源，优先概括共同结论，再列出差异和不确定性。\n";
+    return output.str();
 }
 
 std::string formatDuckDuckGoResults(
