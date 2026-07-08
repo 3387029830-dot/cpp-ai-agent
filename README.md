@@ -35,6 +35,7 @@ echo $env:VCPKG_ROOT
 ```
 
 `CMakePresets.json` 默认读取 `$env:VCPKG_ROOT`，不会绑定某一台电脑的 Visual Studio 安装路径。
+如果这里没有输出路径，先按上面的命令安装 vcpkg，并重新打开 PowerShell。
 
 如果不想设置全局环境变量，也可以复制本地 preset 样例：
 
@@ -136,7 +137,29 @@ $env:OPENAI_API_KEY="你的 API Key"
 
 程序读取配置的优先级为：系统环境变量 > `.env` > `config/settings.json`。
 
-如果 `cmake --preset` 提示找不到编译器，请在 “x64 Native Tools Command Prompt for VS” 里运行同样命令，或先执行本机 Visual Studio 的 `VsDevCmd.bat`。
+默认 `msvc-vcpkg-debug` 使用 Visual Studio generator，不需要手动打开 “x64 Native Tools Command Prompt”。如果你从旧版本更新后遇到 “generator does not match” 或仍然看到 `NMake Makefiles`，删除旧构建目录后重新配置：
+
+```powershell
+Remove-Item -Recurse -Force build\msvc-vcpkg-debug
+cmake --preset msvc-vcpkg-debug
+cmake --build --preset msvc-vcpkg-debug
+```
+
+如果必须使用 NMake，可以改用 `nmake-vcpkg-debug` preset，但需要先进入 “x64 Native Tools Command Prompt for VS” 或执行 `vcvars64.bat`。
+
+如果报错 `Could not find toolchain file: /scripts/buildsystems/vcpkg.cmake`，说明当前终端没有 `VCPKG_ROOT`。先设置 vcpkg 路径，再重新打开 PowerShell：
+
+```powershell
+setx VCPKG_ROOT C:\vcpkg
+```
+
+如果报错 `fatal error C1083: 无法打开包括文件: “cstdint”`，通常是旧版 NMake 构建缓存或没有加载 MSVC 环境。优先使用默认的 `msvc-vcpkg-debug` preset，并删除旧构建目录重新配置：
+
+```powershell
+Remove-Item -Recurse -Force build\msvc-vcpkg-debug
+cmake --preset msvc-vcpkg-debug
+cmake --build --preset msvc-vcpkg-debug
+```
 
 ### 4. 一键验收流程
 
@@ -144,7 +167,7 @@ $env:OPENAI_API_KEY="你的 API Key"
 cmake --preset msvc-vcpkg-debug
 cmake --build --preset msvc-vcpkg-debug
 cd build\msvc-vcpkg-debug
-ctest --output-on-failure
+ctest -C Debug --output-on-failure
 cd ..\..
 .\build\msvc-vcpkg-debug\ai-agent.exe /doctor
 .\build\msvc-vcpkg-debug\ai-agent.exe /demo
