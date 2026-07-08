@@ -6,7 +6,7 @@
     "proxy_url": ""
   },
   "web_search": {
-    "proxy_url": "http://127.0.0.1:7897"
+    "proxy_url": ""
   },
   "agent": {
     "max_iterations": 10

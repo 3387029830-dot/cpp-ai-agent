@@ -83,7 +83,7 @@ std::string settingsJson() {
     "proxy_url": ""
   },
   "web_search": {
-    "proxy_url": "http://127.0.0.1:7897"
+    "proxy_url": ""
   },
   "agent": {
     "max_iterations": 10
@@ -98,10 +98,12 @@ TEST_CASE("AppConfig loads LLM values from .env when process environment is empt
     ScopedEnv baseUrl("OPENAI_BASE_URL");
     ScopedEnv model("OPENAI_MODEL");
     ScopedEnv proxy("OPENAI_PROXY_URL");
+    ScopedEnv webSearchProxy("WEB_SEARCH_PROXY_URL");
     apiKey.unset();
     baseUrl.unset();
     model.unset();
     proxy.unset();
+    webSearchProxy.unset();
 
     const auto root = makeTempConfigWorkspace("dotenv");
     writeTextFile(root / "config" / "settings.json", settingsJson());
@@ -120,7 +122,7 @@ TEST_CASE("AppConfig loads LLM values from .env when process environment is empt
     CHECK(config.llm.baseUrl == "https://dotenv.example/v1");
     CHECK(config.llm.model == "dotenv-model");
     CHECK(config.llm.proxyUrl.empty());
-    CHECK(config.webSearchProxyUrl == "http://127.0.0.1:7897");
+    CHECK(config.webSearchProxyUrl.empty());
 
     std::filesystem::remove_all(root);
 }
@@ -137,6 +139,24 @@ TEST_CASE("AppConfig loads dedicated web search proxy with environment priority"
 
     CHECK(config.webSearchProxyUrl == "http://127.0.0.1:10809");
     CHECK(config.llm.proxyUrl.empty());
+
+    std::filesystem::remove_all(root);
+}
+
+TEST_CASE("AppConfig does not reuse LLM proxy for web search by default") {
+    ScopedEnv llmProxy("OPENAI_PROXY_URL");
+    ScopedEnv webSearchProxy("WEB_SEARCH_PROXY_URL");
+    llmProxy.set("http://127.0.0.1:10808");
+    webSearchProxy.unset();
+
+    const auto root = makeTempConfigWorkspace("web-search-no-llm-proxy");
+    writeTextFile(root / "config" / "settings.json", settingsJson());
+
+    const auto config =
+        cpp_ai_agent::config::loadAppConfig((root / "config" / "settings.json").string());
+
+    CHECK(config.llm.proxyUrl == "http://127.0.0.1:10808");
+    CHECK(config.webSearchProxyUrl.empty());
 
     std::filesystem::remove_all(root);
 }

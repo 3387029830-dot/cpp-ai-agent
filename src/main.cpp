@@ -155,7 +155,7 @@ std::string envTemplateForProvider(const std::string& provider) {
             "OPENAI_BASE_URL=https://api.deepseek.com\n"
             "OPENAI_MODEL=deepseek-chat\n"
             "OPENAI_PROXY_URL=\n"
-            "WEB_SEARCH_PROXY_URL=http://127.0.0.1:7897\n";
+            "WEB_SEARCH_PROXY_URL=\n";
     }
 
     if (provider == "linkapi") {
@@ -164,7 +164,7 @@ std::string envTemplateForProvider(const std::string& provider) {
             "OPENAI_BASE_URL=https://api.linkapi.ai/v1\n"
             "OPENAI_MODEL=gpt-5.4-mini\n"
             "OPENAI_PROXY_URL=\n"
-            "WEB_SEARCH_PROXY_URL=http://127.0.0.1:7897\n";
+            "WEB_SEARCH_PROXY_URL=\n";
     }
 
     return "";
