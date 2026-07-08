@@ -4,8 +4,6 @@
 #include <cpr/cpr.h>
 #include <cpr/ssl_options.h>
 #include <nlohmann/json.hpp>
-#include <cstdlib>
-#include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <utility>
@@ -59,47 +57,24 @@ std::string urlEncode(const std::string& value) {
     return encoded;
 }
 
-std::string getEnvValue(const char* name) {
-#ifdef _MSC_VER
-    char* value = nullptr;
-    std::size_t size = 0;
-    if (_dupenv_s(&value, &size, name) != 0 || value == nullptr) {
-        return {};
+std::string explainSearchError(const std::string& message, const std::string& proxyUrl) {
+    std::ostringstream output;
+    output << message;
+    if (!proxyUrl.empty()) {
+        output << "\nHint: Web search is using proxy " << proxyUrl
+               << ". If that local proxy is not running, clear web_search.proxy_url in config/settings.json "
+               << "or set WEB_SEARCH_PROXY_URL to a reachable proxy.";
+    } else {
+        output << "\nHint: Check network access to https://api.duckduckgo.com/. "
+               << "If your network requires a proxy, set WEB_SEARCH_PROXY_URL.";
     }
-    std::unique_ptr<char, decltype(&std::free)> holder(value, &std::free);
-    return size > 1 ? std::string(holder.get()) : std::string{};
-#else
-    const auto* value = std::getenv(name);
-    return value != nullptr && *value != '\0' ? std::string(value) : std::string{};
-#endif
-}
-
-std::string environmentProxy() {
-    if (const auto httpsProxy = getEnvValue("HTTPS_PROXY"); !httpsProxy.empty()) {
-        return httpsProxy;
-    }
-    if (const auto httpsProxy = getEnvValue("https_proxy"); !httpsProxy.empty()) {
-        return httpsProxy;
-    }
-    if (const auto httpProxy = getEnvValue("HTTP_PROXY"); !httpProxy.empty()) {
-        return httpProxy;
-    }
-    if (const auto httpProxy = getEnvValue("http_proxy"); !httpProxy.empty()) {
-        return httpProxy;
-    }
-    if (const auto allProxy = getEnvValue("ALL_PROXY"); !allProxy.empty()) {
-        return allProxy;
-    }
-    if (const auto allProxy = getEnvValue("all_proxy"); !allProxy.empty()) {
-        return allProxy;
-    }
-    return {};
+    return output.str();
 }
 
 }  // namespace
 
 WebSearchTool::WebSearchTool(std::string proxyUrl)
-    : proxyUrl_(proxyUrl.empty() ? environmentProxy() : std::move(proxyUrl)) {}
+    : proxyUrl_(std::move(proxyUrl)) {}
 
 std::string WebSearchTool::name() const {
     return "web_search";
@@ -164,7 +139,9 @@ ToolResult WebSearchTool::execute(const nlohmann::json& args) const {
 
         const auto response = session.Get();
         if (response.error) {
-            throw std::runtime_error("web search request failed: " + response.error.message);
+            throw std::runtime_error(
+                explainSearchError("web search request failed: " + response.error.message, proxyUrl_)
+            );
         }
         if (response.status_code < 200 || response.status_code >= 300) {
             throw std::runtime_error("web search returned HTTP " + std::to_string(response.status_code));
