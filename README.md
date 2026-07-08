@@ -70,6 +70,7 @@ OPENAI_API_KEY=你的 API Key
 OPENAI_BASE_URL=https://api.linkapi.ai/v1
 OPENAI_MODEL=gpt-5.4-mini
 OPENAI_PROXY_URL=
+WEB_SEARCH_PROXY_URL=http://127.0.0.1:7897
 ```
 
 如果使用 DeepSeek，可以改成：
@@ -79,6 +80,7 @@ OPENAI_API_KEY=你的 DeepSeek API Key
 OPENAI_BASE_URL=https://api.deepseek.com
 OPENAI_MODEL=deepseek-chat
 OPENAI_PROXY_URL=
+WEB_SEARCH_PROXY_URL=http://127.0.0.1:7897
 ```
 
 也可以直接复制样例：
@@ -153,6 +155,7 @@ cd ..\..
 ```powershell
 .\build\msvc-vcpkg-debug\ai-agent.exe /ui
 .\build\msvc-vcpkg-debug\ai-agent.exe /skills
+.\build\msvc-vcpkg-debug\ai-agent.exe /search cpp-ai-agent MCP stdio
 .\build\msvc-vcpkg-debug\ai-agent.exe /mcp-demo
 .\build\msvc-vcpkg-debug\ai-agent.exe /mcp-call-demo
 .\build\msvc-vcpkg-debug\ai-agent.exe /mcp-connect <command> [args...]
@@ -176,11 +179,18 @@ cd ..\..
 
 ```powershell
 .\build\msvc-vcpkg-debug\ai-agent.exe /ui
-.\build\msvc-vcpkg-debug\ai-agent.exe /search
+.\build\msvc-vcpkg-debug\ai-agent.exe /search cpp-ai-agent MCP stdio
 .\build\msvc-vcpkg-debug\ai-agent.exe /skills
 .\build\msvc-vcpkg-debug\ai-agent.exe /mcp-demo
 .\build\msvc-vcpkg-debug\ai-agent.exe /mcp-call-demo
 .\build\msvc-vcpkg-debug\ai-agent.exe /mcp-connect <command> [args...]
+```
+
+`/search` 使用独立的 Web 搜索代理配置。默认 `config/settings.json` 中的 `web_search.proxy_url` 为 `http://127.0.0.1:7897`，如果你的代理端口不同，可以改配置或在当前 PowerShell 里覆盖：
+
+```powershell
+$env:WEB_SEARCH_PROXY_URL="http://127.0.0.1:7897"
+.\build\msvc-vcpkg-debug\ai-agent.exe /search cpp-ai-agent MCP stdio
 ```
 
 诊断当前配置：
@@ -198,14 +208,29 @@ $env:OPENAI_MODEL="gpt-5.4-mini"
 
 如果 API 返回 `model_not_found`，优先检查模型名是否拼错。程序会自动把常见误拼 `gpt-5.4.-mini` 纠正为 `gpt-5.4-mini`，但仍建议在 `.env` 或系统环境变量中写正确值。
 
+在主对话中可以启用 Skill，让 Agent 切换到对应工作模式：
+
+```text
+/skills
+/use-skill code_review src/mcp
+/use-skill cpp_debug build-log.txt
+/use-skill project_summary docs
+/use-skill test_writer tests
+```
+
+每个 Skill 可以配置 `allowed_tools`，启用后 AgentLoop 会阻止该 Skill 白名单之外的工具调用。
+
 ## 核心目标
 
 - 建立完整 Agent 主循环：输入、模型决策、工具调用、结果回填、多轮执行。
 - 通过 `ContextManager` 保留 system prompt 并限制发送给模型的上下文窗口。
 - 提供插件式工具系统，支持文件工具、命令工具、搜索工具等扩展。
+- 提供 `web_search` 安全工具和 `/search <query>` 命令，支持 Web 搜索、结构化结果整理和引用链接输出。
 - 接入 OpenAI 兼容格式的大模型 API。
 - 提供最小 MCP stdio 客户端，支持初始化、工具列表发现和基础工具调用；内置 MCP 工具会注册进 AgentLoop，可由模型自动调用。
 - 可从 `config/mcp_servers.json` 读取外部 stdio MCP server，自动发现并注册工具。
+- 支持 `/use-skill <name> [target]` 在主对话中启用 Skill，将 code review、C++ debug、项目总结、测试生成等专家提示和目标参数注入 Agent 上下文，并按 Skill 工具白名单限制工具调用。
+- 提供 `list_dir` 安全工具，目录型任务可先列目录再逐个读取文件。
 - 加入权限确认，避免模型直接执行高风险操作；写入和编辑文件前会显示 diff 预览再请求确认。
 - 记录执行日志，支持历史回放和答辩演示。
 - 使用 ANSI 增强的流式控制台展示对话、工具调用、权限确认、状态和结果。
@@ -267,6 +292,7 @@ cpp-ai-agent/
 | `.env.example` | 环境变量样例，不存放真实密钥 |
 | `.env` | 本地真实环境变量文件，不提交到 Git |
 | `config/mcp_servers.json` | 外部 stdio MCP server 配置，默认示例为禁用状态 |
+| `config/skills.json` | Skill 配置，内置 `code_review`、`cpp_debug`、`project_summary`、`test_writer` |
 | `.clang-format` | C++ 代码格式化规则 |
 | `config/` | 程序运行配置 |
 | `docs/` | 项目文档 |
@@ -278,6 +304,7 @@ cpp-ai-agent/
 | `src/mcp/McpToolAdapter.*` | 将 MCP tool 包装成项目内 `ITool`，注册进 AgentLoop |
 | `src/security/` | 权限确认、diff 预览确认和危险命令拦截 |
 | `src/storage/` | JSONL 会话日志 |
+| `src/tools/WebSearchTool.*` | Web 搜索与检索结果整理工具 |
 | `src/ui/Console.*` | ANSI 增强流式控制台呈现 |
 | `tests/` | 单元测试代码 |
 | `build/` | 构建产物目录，不提交到 Git |

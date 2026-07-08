@@ -27,7 +27,8 @@ AgentLoop::AgentLoop(
         storage::JsonLogger& logger,
         int maxIterations,
         AgentEventCallback onEvent,
-        int maxContextMessages
+        int maxContextMessages,
+        ToolPolicy toolPolicy
 )
     : llm_(llm),
       tools_(tools),
@@ -35,7 +36,8 @@ AgentLoop::AgentLoop(
       logger_(logger),
       maxIterations_(std::max(1, maxIterations)),
       onEvent_(std::move(onEvent)),
-      context_(static_cast<std::size_t>(std::max(1, maxContextMessages))) {}
+      context_(static_cast<std::size_t>(std::max(1, maxContextMessages))),
+      toolPolicy_(std::move(toolPolicy)) {}
 
 core::Message AgentLoop::runTurn(core::Session& session) const {
     for (int iteration = 0; iteration < maxIterations_; ++iteration) {
@@ -112,6 +114,14 @@ core::Message AgentLoop::executeToolCall(const core::ToolCall& toolCall) const {
     if (tool == nullptr) {
         toolMessage.content = "Tool not found: " + toolCall.name;
         return toolMessage;
+    }
+
+    if (toolPolicy_) {
+        const auto denial = toolPolicy_(toolCall.name);
+        if (!denial.empty()) {
+            toolMessage.content = denial;
+            return toolMessage;
+        }
     }
 
     try {

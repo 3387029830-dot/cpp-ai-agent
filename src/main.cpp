@@ -7,13 +7,17 @@
 #include "mcp/McpClient.h"
 #include "mcp/McpToolAdapter.h"
 #include "security/PermissionManager.h"
+#include "skills/SkillCatalog.h"
 #include "storage/HistoryReader.h"
 #include "storage/JsonLogger.h"
 #include "tools/FileTools.h"
 #include "tools/ShellTool.h"
 #include "tools/ToolRegistry.h"
+#include "tools/WebSearchTool.h"
 #include "ui/Console.h"
 
+#include <algorithm>
+#include <cctype>
 #include <exception>
 #include <filesystem>
 #include <fstream>
@@ -22,6 +26,7 @@
 #include <nlohmann/json.hpp>
 #include <string>
 #include <utility>
+#include <vector>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -149,7 +154,8 @@ std::string envTemplateForProvider(const std::string& provider) {
             "OPENAI_API_KEY=your_deepseek_key_here\n"
             "OPENAI_BASE_URL=https://api.deepseek.com\n"
             "OPENAI_MODEL=deepseek-chat\n"
-            "OPENAI_PROXY_URL=\n";
+            "OPENAI_PROXY_URL=\n"
+            "WEB_SEARCH_PROXY_URL=http://127.0.0.1:7897\n";
     }
 
     if (provider == "linkapi") {
@@ -157,10 +163,25 @@ std::string envTemplateForProvider(const std::string& provider) {
             "OPENAI_API_KEY=your_linkapi_key_here\n"
             "OPENAI_BASE_URL=https://api.linkapi.ai/v1\n"
             "OPENAI_MODEL=gpt-5.4-mini\n"
-            "OPENAI_PROXY_URL=\n";
+            "OPENAI_PROXY_URL=\n"
+            "WEB_SEARCH_PROXY_URL=http://127.0.0.1:7897\n";
     }
 
     return "";
+}
+
+std::string trimCommandInput(std::string value) {
+    const std::string utf8Bom = "\xEF\xBB\xBF";
+    if (value.rfind(utf8Bom, 0) == 0) {
+        value.erase(0, utf8Bom.size());
+    }
+
+    const auto isSpace = [](unsigned char ch) {
+        return std::isspace(ch) != 0;
+    };
+    value.erase(value.begin(), std::find_if_not(value.begin(), value.end(), isSpace));
+    value.erase(std::find_if_not(value.rbegin(), value.rend(), isSpace).base(), value.end());
+    return value;
 }
 
 int writeEnvTemplate(const std::string& provider) {
@@ -215,31 +236,35 @@ void printDemoGuide() {
 }
 
 void printSearchPlaceholder() {
-    std::cout << "search> Web search is a planned M5 extension point.\n";
-    std::cout << "search> No search provider is configured in this demo build.\n";
-    std::cout << "search> Extension idea: add a SearchTool implementing ITool and register it in ToolRegistry.\n";
+    std::cout << "usage> ai-agent.exe /search <query>\n";
+    std::cout << "example> ai-agent.exe /search cpp-ai-agent MCP stdio\n";
 }
 
-void printSkills(const std::filesystem::path& path) {
-    std::ifstream input(path);
-    if (!input) {
-        std::cout << "skills> failed to open " << path.string() << "\n";
-        return;
-    }
-
-    nlohmann::json json;
-    input >> json;
-    const auto skills = json.value("skills", nlohmann::json::array());
-    if (skills.empty()) {
+void printSkills(const cpp_ai_agent::skills::SkillCatalog& catalog) {
+    if (catalog.all().empty()) {
         std::cout << "skills> no skills configured.\n";
         std::cout << "skills> Add entries to config/skills.json to demonstrate prompt/tool presets.\n";
         return;
     }
 
-    for (const auto& skill : skills) {
-        std::cout << "skill> " << skill.value("name", "(unnamed)") << ": "
-                  << skill.value("description", "") << "\n";
+    std::cout << "skills> available skills\n";
+    for (const auto& skill : catalog.all()) {
+        std::cout << "  - " << skill.name << ": " << skill.description << "\n";
+        if (!skill.allowedTools.empty()) {
+            std::cout << "    tools: ";
+            for (std::size_t i = 0; i < skill.allowedTools.size(); ++i) {
+                if (i > 0) {
+                    std::cout << ", ";
+                }
+                std::cout << skill.allowedTools.at(i);
+            }
+            std::cout << "\n";
+        }
+        if (!skill.suggestedPrompt.empty()) {
+            std::cout << "    prompt: " << skill.suggestedPrompt << "\n";
+        }
     }
+    std::cout << "skills> use /use-skill <name> [target] in chat to activate one.\n";
 }
 
 void printMcpServerInfo(const cpp_ai_agent::mcp::McpServerInfo& info) {
@@ -455,13 +480,17 @@ int main(int argc, char* argv[]) {
     using cpp_ai_agent::llm::LlmClient;
     using cpp_ai_agent::security::PermissionManager;
     using cpp_ai_agent::security::PermissionRequest;
+    using cpp_ai_agent::skills::loadSkillCatalog;
+    using cpp_ai_agent::skills::makeSkillSystemMessage;
     using cpp_ai_agent::storage::listHistoryFiles;
     using cpp_ai_agent::storage::JsonLogger;
     using cpp_ai_agent::storage::replayHistoryFile;
     using cpp_ai_agent::tools::EditFileTool;
+    using cpp_ai_agent::tools::ListDirTool;
     using cpp_ai_agent::tools::ReadFileTool;
     using cpp_ai_agent::tools::ShellTool;
     using cpp_ai_agent::tools::ToolRegistry;
+    using cpp_ai_agent::tools::WebSearchTool;
     using cpp_ai_agent::tools::WriteFileTool;
     using cpp_ai_agent::ui::Console;
     using cpp_ai_agent::ui::detectColorSupport;
@@ -472,6 +501,7 @@ int main(int argc, char* argv[]) {
 
     try {
         const auto appConfig = loadAppConfig("config/settings.json");
+        const auto skillCatalog = loadSkillCatalog("config/skills.json");
 
         if (argc >= 2) {
             const std::string command = argv[1];
@@ -505,12 +535,32 @@ int main(int argc, char* argv[]) {
             }
 
             if (command == "/search") {
-                printSearchPlaceholder();
+                if (argc < 3) {
+                    printSearchPlaceholder();
+                    return 1;
+                }
+                std::string query;
+                for (int i = 2; i < argc; ++i) {
+                    if (!query.empty()) {
+                        query.push_back(' ');
+                    }
+                    query += argv[i];
+                }
+                WebSearchTool searchTool(appConfig.webSearchProxyUrl);
+                const auto result = searchTool.execute({{"query", query}, {"max_results", 5}});
+                std::cout << (result.success ? result.output : "search> " + result.output + "\n");
                 return 0;
             }
 
             if (command == "/skills") {
-                printSkills("config/skills.json");
+                printSkills(skillCatalog);
+                return 0;
+            }
+
+            if (command == "/use-skill") {
+                std::cout << "usage> ai-agent.exe\n";
+                std::cout << "then type> /use-skill <name> [target]\n";
+                printSkills(skillCatalog);
                 return 0;
             }
 
@@ -588,10 +638,12 @@ int main(int argc, char* argv[]) {
 
         LlmClient llm(appConfig.llm);
         ToolRegistry tools;
+        tools.registerTool(std::make_shared<ListDirTool>(std::filesystem::path(appConfig.workspaceRoot)));
         tools.registerTool(std::make_shared<ReadFileTool>(std::filesystem::path(appConfig.workspaceRoot)));
         tools.registerTool(std::make_shared<WriteFileTool>(std::filesystem::path(appConfig.workspaceRoot)));
         tools.registerTool(std::make_shared<EditFileTool>(std::filesystem::path(appConfig.workspaceRoot)));
         tools.registerTool(std::make_shared<ShellTool>());
+        tools.registerTool(std::make_shared<WebSearchTool>(appConfig.webSearchProxyUrl));
         registerBuiltInMcpTools(tools, argv[0]);
         registerConfiguredMcpTools(tools, "config/mcp_servers.json");
 
@@ -609,6 +661,10 @@ int main(int argc, char* argv[]) {
         JsonLogger logger(std::filesystem::path(appConfig.historyDir));
         console.printBanner(appConfig.llm.model, appConfig.workspaceRoot);
         std::cout << "log> " << logger.path().string() << "\n\n";
+
+        std::string activeSkillName;
+        std::string activeSkillTarget;
+        std::vector<std::string> activeAllowedTools;
 
         cpp_ai_agent::agent::AgentLoop agentLoop(
             llm,
@@ -629,6 +685,16 @@ int main(int argc, char* argv[]) {
                 } else if (event.type == AgentEventType::Warning) {
                     console.printWarning(event.detail);
                 }
+            },
+            40,
+            [&activeSkillName, &activeAllowedTools](const std::string& toolName) {
+                if (activeSkillName.empty() || activeAllowedTools.empty()) {
+                    return std::string();
+                }
+                if (std::find(activeAllowedTools.begin(), activeAllowedTools.end(), toolName) != activeAllowedTools.end()) {
+                    return std::string();
+                }
+                return "Tool '" + toolName + "' is blocked by active skill '" + activeSkillName + "'.";
             }
         );
 
@@ -650,15 +716,69 @@ int main(int argc, char* argv[]) {
                 break;
             }
 
-            if (input == "/exit") {
+            input = convertToUtf8(input, consoleEncoding);
+            const auto commandInput = trimCommandInput(input);
+
+            if (commandInput == "/exit") {
                 break;
             }
 
-            if (input.empty()) {
+            if (commandInput.empty()) {
                 continue;
             }
 
-            input = convertToUtf8(input, consoleEncoding);
+            if (commandInput == "/skills") {
+                printSkills(skillCatalog);
+                continue;
+            }
+
+            const std::string useSkillPrefix = "/use-skill ";
+            if (commandInput.rfind(useSkillPrefix, 0) == 0) {
+                auto rest = trimCommandInput(commandInput.substr(useSkillPrefix.size()));
+                const auto firstSpace = rest.find(' ');
+                const auto skillName = firstSpace == std::string::npos ? rest : rest.substr(0, firstSpace);
+                const auto skillTarget = firstSpace == std::string::npos ? "" : trimCommandInput(rest.substr(firstSpace + 1));
+                const auto* skill = skillCatalog.find(skillName);
+                if (skill == nullptr) {
+                    console.printWarning("Unknown skill: " + skillName);
+                    printSkills(skillCatalog);
+                    continue;
+                }
+
+                activeSkillName = skill->name;
+                activeSkillTarget = skillTarget;
+                activeAllowedTools = skill->allowedTools;
+                session.addMessage(makeMessage(Role::System, makeSkillSystemMessage(*skill, activeSkillTarget)));
+                logger.log(
+                    "skill_selected",
+                    {
+                        {"name", skill->name},
+                        {"description", skill->description},
+                        {"target", activeSkillTarget},
+                        {"allowed_tools", activeAllowedTools},
+                    }
+                );
+                std::cout << "skill> active: " << skill->name << "\n";
+                if (!activeSkillTarget.empty()) {
+                    std::cout << "skill> target: " << activeSkillTarget << "\n";
+                }
+                if (!activeAllowedTools.empty()) {
+                    std::cout << "skill> allowed tools: ";
+                    for (std::size_t i = 0; i < activeAllowedTools.size(); ++i) {
+                        if (i > 0) {
+                            std::cout << ", ";
+                        }
+                        std::cout << activeAllowedTools.at(i);
+                    }
+                    std::cout << "\n";
+                }
+                if (!skill->suggestedPrompt.empty()) {
+                    std::cout << "skill> suggested prompt: " << skill->suggestedPrompt << "\n";
+                }
+                std::cout << "\n";
+                continue;
+            }
+
             console.printUser(input);
             session.addMessage(makeMessage(Role::User, input));
             logger.log("user_message", {{"content", input}});

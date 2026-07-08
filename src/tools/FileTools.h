@@ -20,6 +20,20 @@ private:
     std::filesystem::path workspaceRoot_;
 };
 
+class ListDirTool final : public ITool {
+public:
+    explicit ListDirTool(std::filesystem::path workspaceRoot);
+
+    std::string name() const override;
+    std::string description() const override;
+    nlohmann::json parametersSchema() const override;
+    RiskLevel risk() const override;
+    ToolResult execute(const nlohmann::json& args) const override;
+
+private:
+    std::filesystem::path workspaceRoot_;
+};
+
 class WriteFileTool final : public ITool {
 public:
     explicit WriteFileTool(std::filesystem::path workspaceRoot);

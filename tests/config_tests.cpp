@@ -82,6 +82,9 @@ std::string settingsJson() {
     "api_key_env": "OPENAI_API_KEY",
     "proxy_url": ""
   },
+  "web_search": {
+    "proxy_url": "http://127.0.0.1:7897"
+  },
   "agent": {
     "max_iterations": 10
   }
@@ -116,6 +119,23 @@ TEST_CASE("AppConfig loads LLM values from .env when process environment is empt
     CHECK(config.llm.apiKey == "dotenv-key");
     CHECK(config.llm.baseUrl == "https://dotenv.example/v1");
     CHECK(config.llm.model == "dotenv-model");
+    CHECK(config.llm.proxyUrl.empty());
+    CHECK(config.webSearchProxyUrl == "http://127.0.0.1:7897");
+
+    std::filesystem::remove_all(root);
+}
+
+TEST_CASE("AppConfig loads dedicated web search proxy with environment priority") {
+    ScopedEnv webSearchProxy("WEB_SEARCH_PROXY_URL");
+    webSearchProxy.set("http://127.0.0.1:10809");
+
+    const auto root = makeTempConfigWorkspace("web-search-proxy");
+    writeTextFile(root / "config" / "settings.json", settingsJson());
+
+    const auto config =
+        cpp_ai_agent::config::loadAppConfig((root / "config" / "settings.json").string());
+
+    CHECK(config.webSearchProxyUrl == "http://127.0.0.1:10809");
     CHECK(config.llm.proxyUrl.empty());
 
     std::filesystem::remove_all(root);
