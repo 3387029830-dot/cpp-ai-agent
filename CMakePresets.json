@@ -4,7 +4,19 @@
     {
       "name": "msvc-vcpkg-debug",
       "displayName": "MSVC + vcpkg Debug",
-      "description": "Use Visual Studio Build Tools, NMake, and vcpkg manifest dependencies.",
+      "description": "Use Visual Studio Build Tools and vcpkg manifest dependencies.",
+      "generator": "Visual Studio 18 2026",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-windows"
+      }
+    },
+    {
+      "name": "nmake-vcpkg-debug",
+      "displayName": "NMake + vcpkg Debug",
+      "description": "Legacy NMake preset. Requires x64 Native Tools Command Prompt or vcvars64.bat first.",
       "generator": "NMake Makefiles",
       "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
@@ -17,7 +29,12 @@
   "buildPresets": [
     {
       "name": "msvc-vcpkg-debug",
-      "configurePreset": "msvc-vcpkg-debug"
+      "configurePreset": "msvc-vcpkg-debug",
+      "configuration": "Debug"
+    },
+    {
+      "name": "nmake-vcpkg-debug",
+      "configurePreset": "nmake-vcpkg-debug"
     }
   ]
 }
