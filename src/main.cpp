@@ -22,6 +22,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <string>
@@ -763,14 +764,48 @@ int main(int argc, char* argv[]) {
             }
         );
 
+        // -- 加载项目规范文件 AGENTS.md --
+        auto loadAgentsMd = [](const std::filesystem::path& workspaceRoot) -> std::string {
+            const auto agentsPath = workspaceRoot / "AGENTS.md";
+            if (!std::filesystem::exists(agentsPath)) {
+                return "";
+            }
+            std::ifstream input(agentsPath);
+            if (!input) {
+                return "";
+            }
+            std::ostringstream oss;
+            oss << input.rdbuf();
+            return oss.str();
+        };
+        const std::string agentsMdContent = loadAgentsMd(std::filesystem::path(appConfig.workspaceRoot));
+
         Session session("default");
 
-        session.addMessage(makeMessage(
-            Role::System,
-            "You are cpp-ai-agent, a concise AI coding assistant running in a C++ terminal app. "
-            "When the user asks you to inspect, read, or summarize a local project file, use the "
-            "read_file tool instead of guessing."
-        ));
+        std::string systemPrompt =
+            "You are cpp-ai-agent, a concise AI coding assistant running in a C++ terminal app.\n"
+            "\n"
+            "=== TOOL USAGE RULES ===\n"
+            "- When the user gives you a specific file path or name, call read_file directly — do not list_dir first.\n"
+            "- Only use list_dir when the user asks what files exist or tells you to explore a directory.\n"
+            "- The mcp_project_info tool is a demo tool; do not call it during real tasks.\n"
+            "\n"
+            "=== CLARIFICATION RULES ===\n"
+            "- If the user's message is vague, ambiguous, or too short to understand (e.g. just 'OK', '好的', 'yes', 'do it'), "
+            "DO NOT simply echo back or guess. Instead, ask 1–2 specific clarifying questions to narrow down what they want.\n"
+            "- If the user seems to agree to something ('好的', 'OK', 'go ahead') but you cannot see the original proposal "
+            "in the recent messages, respond with: '我没有看到之前的上下文，能再说一下你想要我做什么吗？'\n"
+            "- When asking clarifying questions, be specific and offer concrete options if possible. "
+            "For example: '你是想让我审查代码、写测试、还是总结项目？'\n"
+            "- Once the user clarifies, proceed directly with the task without further confirmation.";
+
+        if (!agentsMdContent.empty()) {
+            systemPrompt += "\n\n=== PROJECT RULES (AGENTS.md) ===\n";
+            systemPrompt += "The following project-specific conventions override general behavior when applicable.\n";
+            systemPrompt += agentsMdContent;
+        }
+
+        session.addMessage(makeMessage(Role::System, systemPrompt));
 
         std::string input;
         while (true) {
