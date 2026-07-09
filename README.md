@@ -6,9 +6,9 @@
 
 ## 当前状态
 
-当前版本：v0.1.0。项目已完成 M0-M5 演示版闭环：CMake + vcpkg 构建、OpenAI 兼容 API 对话、工具调用、权限确认、JSONL 日志、历史回放、配置诊断、ANSI 增强流式控制台界面和答辩材料。
+当前版本：v0.1.0。项目已完成 M0-M8 演示版闭环：M0-M5 覆盖 CMake + vcpkg 构建、OpenAI 兼容 API 对话、工具调用、权限确认、JSONL 日志、历史回放、配置诊断、ANSI 增强流式控制台界面和答辩材料；M6-M8 继续补充 Web 搜索、最小 MCP 客户端和跨环境工程化稳定性。
 
-在 v0.1.0 交付版之后，本地增强了 AgentLoop 的可测试性、终端呈现和 MCP 集成：新增 `ContextManager` 上下文窗口、可注入的 `ILlmClient` 接口、独立 `tool_calls` 解析测试、Agent 主循环 mock LLM 自动化测试、`src/ui/Console.*` 流式控制台呈现模块，以及可由模型自动调用的内置 MCP 工具。
+在 v0.1.0 交付版之后，项目增强了 AgentLoop 的可测试性、终端呈现、搜索体验、MCP 集成和 Windows 构建稳定性：新增 `ContextManager` 上下文窗口、可注入的 `ILlmClient` 接口、独立 `tool_calls` 解析测试、Agent 主循环 mock LLM 自动化测试、`src/ui/Console.*` 流式控制台呈现模块、Bing RSS 优先的 Web 搜索、可由模型自动调用的内置 MCP 工具、Visual Studio generator 默认构建和 Windows 中文命令行参数修复。
 
 ## 快速开始
 
@@ -198,7 +198,7 @@ cd ..\..
 .\build\msvc-vcpkg-debug\ai-agent.exe /demo
 ```
 
-查看 M5 扩展演示入口：
+查看 M6-M8 扩展演示入口：
 
 ```powershell
 .\build\msvc-vcpkg-debug\ai-agent.exe /ui
@@ -356,7 +356,10 @@ cpp-ai-agent/
 | M2 | 实现工具接口、工具注册表、文件和命令工具 |
 | M3 | 实现 Agent 主循环，支持模型自主调用 `read_file` 并回填结果 |
 | M4 | 加入权限控制、日志记录和历史回放 |
-| M5 | 完善 TUI、搜索、Skill、MCP 演示和测试 |
+| M5 | 完善 ANSI 流式控制台、配置诊断、Skill 和答辩演示 |
+| M6 | 增加 Web 搜索工具和 `/search <query>`，国内网络优先使用 Bing RSS，并提供 DuckDuckGo/Bing 兜底链接 |
+| M7 | 实现最小 MCP stdio 客户端、内置 MCP 测试 server、MCP 工具调用和外部 server 工具发现 |
+| M8 | 完成跨环境稳定性优化：Visual Studio generator 默认构建、NMake 备用 preset、固定 exe 输出目录、Windows 中文命令行参数修复和 GitHub/GitLab 同步流程 |
 
 ## 说明
 
