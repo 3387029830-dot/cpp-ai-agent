@@ -30,6 +30,7 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#include <shellapi.h>
 #endif
 
 namespace {
@@ -47,6 +48,59 @@ cpp_ai_agent::core::Message makeMessage(cpp_ai_agent::core::Role role, std::stri
 }
 
 #ifdef _WIN32
+std::string wideToUtf8(const std::wstring& value) {
+    if (value.empty()) {
+        return {};
+    }
+
+    const auto utf8Length = WideCharToMultiByte(
+        CP_UTF8,
+        0,
+        value.data(),
+        static_cast<int>(value.size()),
+        nullptr,
+        0,
+        nullptr,
+        nullptr
+    );
+    if (utf8Length <= 0) {
+        return {};
+    }
+
+    std::string utf8(static_cast<std::size_t>(utf8Length), '\0');
+    WideCharToMultiByte(
+        CP_UTF8,
+        0,
+        value.data(),
+        static_cast<int>(value.size()),
+        utf8.data(),
+        utf8Length,
+        nullptr,
+        nullptr
+    );
+    return utf8;
+}
+
+std::vector<std::string> commandLineArgs(int argc, char* argv[]) {
+    int wideArgc = 0;
+    LPWSTR* wideArgv = CommandLineToArgvW(GetCommandLineW(), &wideArgc);
+    if (wideArgv == nullptr) {
+        std::vector<std::string> fallback;
+        for (int i = 0; i < argc; ++i) {
+            fallback.emplace_back(argv[i]);
+        }
+        return fallback;
+    }
+
+    std::vector<std::string> args;
+    args.reserve(static_cast<std::size_t>(wideArgc));
+    for (int i = 0; i < wideArgc; ++i) {
+        args.push_back(wideToUtf8(wideArgv[i]));
+    }
+    LocalFree(wideArgv);
+    return args;
+}
+
 ConsoleEncoding configureConsoleEncoding() {
     DWORD consoleMode = 0;
     ConsoleEncoding encoding;
@@ -139,6 +193,15 @@ std::string convertToUtf8(const std::string& value, ConsoleEncoding encoding) {
 #else
 struct ConsoleEncoding {};
 
+std::vector<std::string> commandLineArgs(int argc, char* argv[]) {
+    std::vector<std::string> args;
+    args.reserve(static_cast<std::size_t>(argc));
+    for (int i = 0; i < argc; ++i) {
+        args.emplace_back(argv[i]);
+    }
+    return args;
+}
+
 ConsoleEncoding configureConsoleEncoding() {
     return {};
 }
@@ -216,7 +279,7 @@ void printDemoGuide() {
     std::cout << "   cmake --preset msvc-vcpkg-debug\n";
     std::cout << "   cmake --build --preset msvc-vcpkg-debug\n";
     std::cout << "   cd build\\msvc-vcpkg-debug\n";
-    std::cout << "   ctest --output-on-failure\n\n";
+    std::cout << "   ctest -C Debug --output-on-failure\n\n";
 
     std::cout << "2. Configure provider\n";
     std::cout << "   .\\build\\msvc-vcpkg-debug\\ai-agent.exe /init-env deepseek\n";
@@ -498,13 +561,15 @@ int main(int argc, char* argv[]) {
 
     const auto consoleEncoding = configureConsoleEncoding();
     Console console(detectColorSupport(), detectInteractiveOutput());
+    const auto args = commandLineArgs(argc, argv);
+    const auto argCount = static_cast<int>(args.size());
 
     try {
         const auto appConfig = loadAppConfig("config/settings.json");
         const auto skillCatalog = loadSkillCatalog("config/skills.json");
 
-        if (argc >= 2) {
-            const std::string command = argv[1];
+        if (argCount >= 2) {
+            const std::string command = args.at(1);
             if (command == "/history") {
                 const auto files = listHistoryFiles(std::filesystem::path(appConfig.historyDir));
                 if (files.empty()) {
@@ -535,16 +600,16 @@ int main(int argc, char* argv[]) {
             }
 
             if (command == "/search") {
-                if (argc < 3) {
+                if (argCount < 3) {
                     printSearchPlaceholder();
                     return 1;
                 }
                 std::string query;
-                for (int i = 2; i < argc; ++i) {
+                for (int i = 2; i < argCount; ++i) {
                     if (!query.empty()) {
                         query.push_back(' ');
                     }
-                    query += argv[i];
+                    query += args.at(static_cast<std::size_t>(i));
                 }
                 WebSearchTool searchTool(appConfig.webSearchProxyUrl);
                 const auto result = searchTool.execute({{"query", query}, {"max_results", 5}});
@@ -565,25 +630,25 @@ int main(int argc, char* argv[]) {
             }
 
             if (command == "/mcp-demo") {
-                printMcpDemo(argv[0]);
+                printMcpDemo(args.at(0));
                 return 0;
             }
 
             if (command == "/mcp-call-demo") {
-                printMcpCallDemo(argv[0]);
+                printMcpCallDemo(args.at(0));
                 return 0;
             }
 
             if (command == "/mcp-connect") {
-                if (argc < 3) {
+                if (argCount < 3) {
                     std::cout << "usage> ai-agent.exe /mcp-connect <command> [args...]\n";
                     std::cout << "example> ai-agent.exe /mcp-connect npx -y @modelcontextprotocol/server-filesystem .\n";
                     return 1;
                 }
 
                 std::vector<std::string> mcpCommand;
-                for (int i = 2; i < argc; ++i) {
-                    mcpCommand.emplace_back(argv[i]);
+                for (int i = 2; i < argCount; ++i) {
+                    mcpCommand.emplace_back(args.at(static_cast<std::size_t>(i)));
                 }
                 cpp_ai_agent::mcp::StdioMcpClient client(std::move(mcpCommand));
                 printMcpServerInfo(client.discoverTools());
@@ -602,11 +667,11 @@ int main(int argc, char* argv[]) {
             }
 
             if (command == "/init-env") {
-                if (argc < 3) {
+                if (argCount < 3) {
                     std::cout << "usage> ai-agent.exe /init-env deepseek|linkapi\n";
                     return 1;
                 }
-                return writeEnvTemplate(argv[2]);
+                return writeEnvTemplate(args.at(2));
             }
 
             if (command == "/config") {
@@ -624,12 +689,12 @@ int main(int argc, char* argv[]) {
             }
 
             if (command == "/replay") {
-                if (argc < 3) {
+                if (argCount < 3) {
                     std::cout << "usage> ai-agent.exe /replay logs\\session-*.jsonl\n";
                     return 1;
                 }
 
-                for (const auto& line : replayHistoryFile(std::filesystem::path(argv[2]))) {
+                for (const auto& line : replayHistoryFile(std::filesystem::path(args.at(2)))) {
                     std::cout << line << "\n";
                 }
                 return 0;
@@ -644,7 +709,7 @@ int main(int argc, char* argv[]) {
         tools.registerTool(std::make_shared<EditFileTool>(std::filesystem::path(appConfig.workspaceRoot)));
         tools.registerTool(std::make_shared<ShellTool>());
         tools.registerTool(std::make_shared<WebSearchTool>(appConfig.webSearchProxyUrl));
-        registerBuiltInMcpTools(tools, argv[0]);
+        registerBuiltInMcpTools(tools, args.at(0));
         registerConfiguredMcpTools(tools, "config/mcp_servers.json");
 
         PermissionManager permissions(
