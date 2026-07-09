@@ -21,31 +21,47 @@ namespace cpp_ai_agent::ui {
 
 namespace {
 
-constexpr const char* reset = "\033[0m";
-constexpr const char* bold = "\033[1m";
-constexpr const char* cyan = "\033[36m";
-constexpr const char* blue = "\033[34m";
-constexpr const char* gray = "\033[90m";
-constexpr const char* yellow = "\033[33m";
-constexpr const char* red = "\033[31m";
-constexpr const char* inverse = "\033[7m";
+// ANSI SGR (Select Graphic Rendition) escape sequences.
+// Each constant is a CSI (Control Sequence Introducer, \033[) followed by
+// the SGR parameter(s) and the final byte 'm'.
+// Reference: ECMA-48 / ISO 6429.
+constexpr const char* reset   = "\033[0m";   // reset all attributes
+constexpr const char* bold    = "\033[1m";   // bold / increased intensity
+constexpr const char* cyan    = "\033[36m";  // foreground cyan
+constexpr const char* blue    = "\033[34m";  // foreground blue
+constexpr const char* gray    = "\033[90m";  // bright black (gray)
+constexpr const char* yellow  = "\033[33m";  // foreground yellow
+constexpr const char* red     = "\033[31m";  // foreground red
+constexpr const char* inverse = "\033[7m";   // swap foreground & background
 
+// Returns the number of bytes in a UTF-8 code point given its first byte.
+// See RFC 3629, Table 3-6: UTF-8 Bit Distribution.
 std::size_t utf8CharLen(unsigned char firstByte) {
+    // 0xxxxxxx — single ASCII byte (U+0000..U+007F).
     if (firstByte < 0x80) {
         return 1;
     }
+    // 110xxxxx — 2-byte sequence (U+0080..U+07FF).
+    // (firstByte >> 5) == 0b110  →  0xC0..0xDF.
     if ((firstByte >> 5) == 0x06) {
         return 2;
     }
+    // 1110xxxx — 3-byte sequence (U+0800..U+FFFF).
+    // (firstByte >> 4) == 0b1110  →  0xE0..0xEF.
     if ((firstByte >> 4) == 0x0E) {
         return 3;
     }
+    // 11110xxx — 4-byte sequence (U+10000..U+10FFFF).
+    // (firstByte >> 3) == 0b11110  →  0xF0..0xF7.
     if ((firstByte >> 3) == 0x1E) {
         return 4;
     }
+    // Continuation bytes (10xxxxxx) or invalid lead bytes — treat as 1 byte.
     return 1;
 }
 
+// Strips the "https://" or "http://" scheme prefix from a URL so that it
+// reads better in compact status lines (e.g. "api.deepseek.com").
 std::string stripScheme(std::string value) {
     const std::string https = "https://";
     const std::string http = "http://";
@@ -58,6 +74,9 @@ std::string stripScheme(std::string value) {
     return value;
 }
 
+// Reads an environment variable, returning "" when unset or empty.
+// On Windows this uses _dupenv_s (the CRT secure variant) with a
+// unique_ptr+free guard so the allocated buffer is always released.
 std::string readEnv(const char* name) {
 #ifdef _WIN32
     char* raw = nullptr;
@@ -73,6 +92,8 @@ std::string readEnv(const char* name) {
 #endif
 }
 
+// Returns true when stdin is connected to a terminal (not a pipe or redirect).
+// Used to decide whether to show the interactive arrow-key permission prompt.
 bool stdinIsInteractive() {
 #ifdef _WIN32
     return _isatty(_fileno(stdin)) != 0;
@@ -81,10 +102,13 @@ bool stdinIsInteractive() {
 #endif
 }
 
+// \r  — carriage return (move cursor to column 0).
+// \033[2K — CSI 2K: erase entire current line.
 void clearLine() {
     std::cout << "\r\033[2K";
 }
 
+// \033[N]A — CSI N A: move cursor up N lines (CUU — Cursor Up).
 void moveUp(int lines) {
     if (lines > 0) {
         std::cout << "\033[" << lines << "A";
@@ -94,11 +118,14 @@ void moveUp(int lines) {
 int readChoiceKey() {
 #ifdef _WIN32
     const int ch = _getch();
+    // 0x00 / 0xE0 (224): Windows extended-key prefix for arrow keys, function keys, etc.
     if (ch == 0 || ch == 224) {
         const int extended = _getch();
+        // 72 = VK_UP (↑),  75 = VK_LEFT  (←) — navigate toward "yes" (index -1).
         if (extended == 72 || extended == 75) {
             return -1;
         }
+        // 80 = VK_DOWN (↓), 77 = VK_RIGHT (→) — navigate toward "no"  (index +1).
         if (extended == 80 || extended == 77) {
             return 1;
         }
@@ -106,27 +133,35 @@ int readChoiceKey() {
     }
     return ch;
 #else
+    // Save current terminal settings.
     termios oldSettings{};
     if (tcgetattr(STDIN_FILENO, &oldSettings) != 0) {
         return std::cin.get();
     }
 
+    // Switch to raw (non-canonical, no-echo) mode so we can read keystrokes
+    // one at a time without waiting for Enter.
     termios raw = oldSettings;
     raw.c_lflag &= static_cast<unsigned>(~(ICANON | ECHO));
     tcsetattr(STDIN_FILENO, TCSANOW, &raw);
 
     const int ch = std::cin.get();
     int result = ch;
+    // ESC (27) + '[' is the CSI (Control Sequence Introducer) for ANSI escape
+    // sequences. Arrow keys send ESC [ A / B / C / D.
     if (ch == 27 && std::cin.peek() == '[') {
-        std::cin.get();
+        std::cin.get();               // consume '['
         const int arrow = std::cin.get();
+        // 'A' = Up,  'D' = Left  — navigate toward "yes" (-1).
         if (arrow == 'A' || arrow == 'D') {
             result = -1;
+        // 'B' = Down, 'C' = Right — navigate toward "no"  (+1).
         } else if (arrow == 'B' || arrow == 'C') {
             result = 1;
         }
     }
 
+    // Restore original terminal settings before returning.
     tcsetattr(STDIN_FILENO, TCSANOW, &oldSettings);
     return result;
 #endif
@@ -137,6 +172,8 @@ int readChoiceKey() {
 Console::Console(bool enableColor, bool typewriter)
     : color_(enableColor), typewriter_(typewriter) {}
 
+// Returns the ANSI escape code if color is enabled, or an empty string otherwise.
+// This null-object pattern avoids littering every print method with `if (color_)` guards.
 std::string Console::color(const std::string& code) const {
     return color_ ? code : "";
 }
@@ -147,6 +184,8 @@ void Console::printBanner(const std::string& model, const std::string& workspace
               << color(gray) << "  |  workspace: " << color(reset) << workspace << "\n\n";
 }
 
+// Prints text with a 2-space left indent. Splits on '\n' so that multi-line
+// content stays uniformly indented regardless of embedded newlines.
 void Console::printIndented(const std::string& text) const {
     std::size_t start = 0;
     while (start <= text.size()) {
@@ -173,14 +212,20 @@ void Console::printAssistant(const std::string& text) const {
         return;
     }
 
+    // Pseudo-streaming typewriter loop: output the assistant reply in small
+    // chunks spaced by stepDelayMs_, respecting UTF-8 code-point boundaries
+    // so that multi-byte characters are never split mid-sequence.
     std::size_t i = 0;
     int printedChars = 0;
     while (i < text.size()) {
+        // After maxTypewriterChars_ characters the effect has served its
+        // purpose — dump the remainder instantly to avoid dragging.
         if (printedChars >= maxTypewriterChars_) {
             std::cout << text.substr(i);
             break;
         }
 
+        // Advance by exactly charsPerStep_ complete UTF-8 code points.
         int stepChars = 0;
         const auto start = i;
         while (i < text.size() && stepChars < charsPerStep_) {
@@ -232,6 +277,7 @@ bool Console::confirmPermission(
 ) const {
     printPermissionPrompt(toolName, risk, args, preview);
 
+    // Non-interactive fallback (piped stdin): use plain line-input prompt.
     if (!stdinIsInteractive()) {
         std::cout << color(yellow) << "  choose [y/N]> " << color(reset);
         std::string answer;
@@ -241,6 +287,11 @@ bool Console::confirmPermission(
         return answer == "y" || answer == "yes";
     }
 
+    // Interactive terminal: render an in-place two-option menu.
+    // selected=0 → "yes", selected=1 → "no" (default).
+    // Arrow keys and Tab toggle the selection; Enter confirms; y/n/Esc are
+    // shortcuts. The menu is rendered by overwriting the same two screen
+    // lines via clearLine() + moveUp() so the display stays clean.
     int selected = 1;
     auto renderOptions = [&]() {
         const auto marker = [&](int index, const std::string& label) {
@@ -312,6 +363,8 @@ void Console::printUiOverview(
     std::cout << "› Type a message. /exit quits.\n";
 }
 
+// Returns true when stdout is connected to a terminal (not piped to a file).
+// When false, the typewriter effect and ANSI colors should degrade gracefully.
 bool detectInteractiveOutput() {
 #ifdef _WIN32
     return _isatty(_fileno(stdout)) != 0;
@@ -346,7 +399,20 @@ bool detectColorSupport() {
     }
 
     mode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-    return SetConsoleMode(output, mode) != 0;
+    if (SetConsoleMode(output, mode) != 0) {
+        return true;
+    }
+
+    // SetConsoleMode failed — fall back to TERM check for third-party terminal
+    // emulators (e.g. ansicon, ConEmu, Cmder) that set TERM=xterm or similar.
+    // These emulators provide ANSI processing themselves, so the Windows console
+    // mode doesn't matter.
+    const auto term = readEnv("TERM");
+    if (!term.empty() && term != "dumb") {
+        return true;
+    }
+
+    return false;
 #else
     return true;
 #endif
