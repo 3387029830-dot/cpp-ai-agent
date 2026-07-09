@@ -2,6 +2,7 @@
 
 #include <cctype>
 #include <exception>
+#include <memory>
 #include <utility>
 
 namespace cpp_ai_agent::mcp {
@@ -56,13 +57,20 @@ tools::RiskLevel McpToolAdapter::risk() const {
 
 tools::ToolResult McpToolAdapter::execute(const nlohmann::json& args) const {
     try {
-        StdioMcpClient client(command_);
-        const auto result = client.callTool(tool_.name, args);
+        // Lazily create the persistent client on first call; subsequent calls
+        // reuse the same process connection (initialize handshake is done once).
+        if (!client_) {
+            client_ = std::make_unique<StdioMcpClient>(command_);
+        }
+        const auto result = client_->callTool(tool_.name, args);
         if (result.isError) {
             return {false, result.text, result.text};
         }
         return {true, result.text, result.text};
     } catch (const std::exception& ex) {
+        // If the process died or the connection was lost, reset the client so
+        // the next call will automatically spawn a fresh process and reconnect.
+        client_.reset();
         return {false, std::string("MCP tool failed: ") + ex.what(), ""};
     }
 }

@@ -28,6 +28,12 @@ private:
     std::vector<std::string> command_;
     std::string exposedName_;
     McpTool tool_;
+
+    // Persistent MCP client — created lazily on first execute() and reused for
+    // all subsequent calls, avoiding the cost of spawning a new child process
+    // and re-running the initialize handshake on every tool invocation.
+    // mutable because execute() is const in the ITool interface.
+    mutable std::unique_ptr<StdioMcpClient> client_;
 };
 
 }  // namespace cpp_ai_agent::mcp

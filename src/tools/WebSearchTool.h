@@ -2,7 +2,9 @@
 
 #include "tools/ITool.h"
 
+#include <chrono>
 #include <string>
+#include <unordered_map>
 
 namespace cpp_ai_agent::tools {
 
@@ -18,6 +20,17 @@ public:
 
 private:
     std::string proxyUrl_;
+
+    // Simple in-memory result cache to avoid redundant HTTP requests when the
+    // model calls web_search for the same query within a short time window.
+    static constexpr int cacheTtlSeconds_ = 300;
+    static constexpr std::size_t cacheMaxEntries_ = 100;
+
+    struct CachedEntry {
+        ToolResult result;
+        std::chrono::steady_clock::time_point timestamp;
+    };
+    mutable std::unordered_map<std::string, CachedEntry> cache_;
 };
 
 std::string formatDuckDuckGoResults(
