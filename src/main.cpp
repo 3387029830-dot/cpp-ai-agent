@@ -809,7 +809,7 @@ int main(int argc, char* argv[]) {
 
         std::string input;
         while (true) {
-            std::cout << "› ";
+            std::cout << "\033[36m▸ you\033[0m ";
 
             if (!std::getline(std::cin, input)) {
                 std::cout << "\n";
@@ -892,7 +892,6 @@ int main(int argc, char* argv[]) {
                 continue;
             }
 
-            console.printUser(input);
             session.addMessage(makeMessage(Role::User, input));
             logger.log("user_message", {{"content", input}});
 

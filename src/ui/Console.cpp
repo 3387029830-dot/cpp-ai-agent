@@ -199,10 +199,8 @@ void Console::printIndented(const std::string& text) const {
     }
 }
 
-void Console::printUser(const std::string& text) const {
-    std::cout << color(cyan) << "▸ you" << color(reset) << "\n";
-    printIndented(text);
-    std::cout << "\n";
+void Console::printUser(const std::string& /*text*/) const {
+    std::cout << color(cyan) << "▸ you" << color(reset) << "\n\n";
 }
 
 void Console::printAssistant(const std::string& text) const {

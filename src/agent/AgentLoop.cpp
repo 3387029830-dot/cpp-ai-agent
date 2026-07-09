@@ -118,7 +118,7 @@ core::Message AgentLoop::executeToolCall(const core::ToolCall& toolCall) const {
 
     if (toolPolicy_) {
         const auto denial = toolPolicy_(toolCall.name);
-        if (!denial.empty()) {
+        if (!denial.empty()) {//被skill拦截
             toolMessage.content = denial;
             return toolMessage;
         }
