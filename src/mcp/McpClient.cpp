@@ -1,6 +1,7 @@
 #include "mcp/McpClient.h"
 
 #include <chrono>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -20,6 +21,26 @@ std::runtime_error mcpError(const std::string& message) {
     return std::runtime_error("MCP stdio client: " + message);
 }
 
+// Wraps an argument for the Windows command line following the escaping rules
+// that CommandLineToArgvW applies when parsing.  Reference:
+// https://learn.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-commandlinetoargvw
+//
+// Rules (summarised from the MSDN docs):
+// 1. If the argument contains spaces, tabs, or double-quotes it must be
+//    wrapped in a pair of double-quotes.
+// 2. Backslashes are interpreted literally unless they immediately precede a
+//    double-quote, in which case each pair of backslashes represents one
+//    literal backslash and the double-quote is escaped:
+//      \"  →  literal "
+//      \\" →  literal \  followed by an escaped "
+// 3. A closing double-quote preceded by N backslashes: those backslashes are
+//    halved (N/2) and the quote terminates the quoted section.
+//
+// Therefore when we encounter a literal '"' in the argument we must emit
+// (backslashes * 2 + 1) backslashes followed by the escaped quote so that
+// CommandLineToArgvW reconstructs the original backslashes + literal quote.
+// At the end of the argument, trailing backslashes are doubled so they are
+// not misinterpreted as escaping the closing quote.
 std::string quoteArg(const std::string& arg) {
     if (arg.empty()) {
         return "\"\"";
@@ -219,6 +240,37 @@ private:
 
 }  // namespace
 
+// Pimpl state for persistent MCP sessions.
+// Holds the child process and tracks whether the initialize handshake has
+// completed, so callers can make multiple tool calls over the same connection.
+struct StdioMcpClient::SessionState {
+#ifdef _WIN32
+    std::unique_ptr<ChildProcess> process;
+#endif
+    bool connected = false;
+    McpServerInfo serverInfo;
+};
+
+StdioMcpClient::~StdioMcpClient() = default;
+
+void StdioMcpClient::ensureConnected() const {
+#ifdef _WIN32
+    if (state_->connected) {
+        return;
+    }
+
+    state_->process = std::make_unique<ChildProcess>(command_);
+    constexpr int initializeId = 1;
+    state_->process->writeLine(makeInitializeRequest(initializeId).dump());
+    state_->serverInfo = parseInitializeResult(
+        nlohmann::json::parse(state_->process->readLine()));
+    state_->process->writeLine(makeInitializedNotification().dump());
+    state_->connected = true;
+#else
+    throw mcpError("stdio process transport is currently implemented for Windows only");
+#endif
+}
+
 nlohmann::json makeInitializeRequest(int id) {
     return {
         {"jsonrpc", "2.0"},
@@ -308,38 +360,31 @@ McpToolResult parseToolsCallResult(const nlohmann::json& response) {
     return toolResult;
 }
 
-StdioMcpClient::StdioMcpClient(std::vector<std::string> command) : command_(std::move(command)) {}
+StdioMcpClient::StdioMcpClient(std::vector<std::string> command)
+    : command_(std::move(command)), state_(std::make_unique<SessionState>()) {}
 
 McpServerInfo StdioMcpClient::discoverTools() const {
+    ensureConnected();
 #ifdef _WIN32
-    ChildProcess process(command_);
-    constexpr int initializeId = 1;
     constexpr int toolsListId = 2;
-
-    process.writeLine(makeInitializeRequest(initializeId).dump());
-    auto info = parseInitializeResult(nlohmann::json::parse(process.readLine()));
-
-    process.writeLine(makeInitializedNotification().dump());
-    process.writeLine(makeToolsListRequest(toolsListId).dump());
-    info.tools = parseToolsListResult(nlohmann::json::parse(process.readLine()));
+    state_->process->writeLine(makeToolsListRequest(toolsListId).dump());
+    auto info = state_->serverInfo;
+    info.tools = parseToolsListResult(nlohmann::json::parse(state_->process->readLine()));
     return info;
 #else
     throw mcpError("stdio process transport is currently implemented for Windows only");
 #endif
 }
 
-McpToolResult StdioMcpClient::callTool(const std::string& name, const nlohmann::json& arguments) const {
+McpToolResult StdioMcpClient::callTool(
+    const std::string& name,
+    const nlohmann::json& arguments
+) const {
+    ensureConnected();
 #ifdef _WIN32
-    ChildProcess process(command_);
-    constexpr int initializeId = 1;
-    constexpr int toolCallId = 2;
-
-    process.writeLine(makeInitializeRequest(initializeId).dump());
-    parseInitializeResult(nlohmann::json::parse(process.readLine()));
-
-    process.writeLine(makeInitializedNotification().dump());
-    process.writeLine(makeToolsCallRequest(toolCallId, name, arguments).dump());
-    return parseToolsCallResult(nlohmann::json::parse(process.readLine()));
+    constexpr int toolCallId = 3;
+    state_->process->writeLine(makeToolsCallRequest(toolCallId, name, arguments).dump());
+    return parseToolsCallResult(nlohmann::json::parse(state_->process->readLine()));
 #else
     throw mcpError("stdio process transport is currently implemented for Windows only");
 #endif

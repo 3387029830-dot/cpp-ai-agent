@@ -177,6 +177,32 @@ ToolResult WebSearchTool::execute(const nlohmann::json& args) const {
 
         const auto maxResults = (std::max)(1, (std::min)(10, args.value("max_results", 5)));
 
+        // --- result cache (TTL = 5 minutes) ---
+        const auto cacheKey = query + "|max=" + std::to_string(maxResults);
+        const auto now = std::chrono::steady_clock::now();
+        {
+            const auto it = cache_.find(cacheKey);
+            if (it != cache_.end()) {
+                const auto age = std::chrono::duration_cast<std::chrono::seconds>(
+                    now - it->second.timestamp).count();
+                if (age < cacheTtlSeconds_) {
+                    return it->second.result;
+                }
+                cache_.erase(it);  // expired
+            }
+            // Evict all expired entries so the cache doesn't grow unbounded.
+            auto evict = cache_.begin();
+            while (evict != cache_.end()) {
+                const auto age = std::chrono::duration_cast<std::chrono::seconds>(
+                    now - evict->second.timestamp).count();
+                if (age >= cacheTtlSeconds_) {
+                    evict = cache_.erase(evict);
+                } else {
+                    ++evict;
+                }
+            }
+        }
+
         std::vector<std::string> errors;
 
         cpr::Session bingSession;
@@ -201,7 +227,9 @@ ToolResult WebSearchTool::execute(const nlohmann::json& args) const {
         if (!bingResponse.error && bingResponse.status_code >= 200 && bingResponse.status_code < 300) {
             const auto formatted = formatBingRssResults(query, bingResponse.text, maxResults);
             if (formatted.find("(no structured results returned)") == std::string::npos) {
-                return {true, formatted, "Web search: " + query};
+                auto result = ToolResult{true, formatted, "Web search: " + query};
+                cache_[cacheKey] = {result, now};
+                return result;
             }
             errors.push_back("Bing RSS returned no structured results");
         } else if (bingResponse.error) {
@@ -241,11 +269,13 @@ ToolResult WebSearchTool::execute(const nlohmann::json& args) const {
                 }
                 reason << errors.at(i);
             }
-            return {
+            auto fallbackResult = ToolResult{
                 true,
                 formatSearchFallback(query, reason.str(), proxyUrl_),
                 "Web search fallback: " + query,
             };
+            cache_[cacheKey] = {fallbackResult, now};
+            return fallbackResult;
         }
         if (response.status_code < 200 || response.status_code >= 300) {
             errors.push_back("DuckDuckGo returned HTTP " + std::to_string(response.status_code));
@@ -256,16 +286,20 @@ ToolResult WebSearchTool::execute(const nlohmann::json& args) const {
                 }
                 reason << errors.at(i);
             }
-            return {
+            auto fallbackResult = ToolResult{
                 true,
                 formatSearchFallback(query, reason.str(), proxyUrl_),
                 "Web search fallback: " + query,
             };
+            cache_[cacheKey] = {fallbackResult, now};
+            return fallbackResult;
         }
 
         const auto body = nlohmann::json::parse(response.text);
         const auto formatted = formatDuckDuckGoResults(query, body, maxResults);
-        return {true, formatted, "Web search: " + query};
+        auto result = ToolResult{true, formatted, "Web search: " + query};
+        cache_[cacheKey] = {result, now};
+        return result;
     } catch (const std::exception& ex) {
         return {false, ex.what(), std::string("Tool failed: ") + ex.what()};
     }
