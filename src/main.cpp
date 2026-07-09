@@ -844,6 +844,19 @@ int main(int argc, char* argv[]) {
                 continue;
             }
 
+            if (commandInput == "/clear-skill") {
+                if (activeSkillName.empty()) {
+                    std::cout << "skill> no active skill to clear.\n\n";
+                } else {
+                    std::cout << "skill> cleared: " << activeSkillName << "\n\n";
+                    logger.log("skill_cleared", {{"name", activeSkillName}});
+                    activeSkillName.clear();
+                    activeSkillTarget.clear();
+                    activeAllowedTools.clear();
+                }
+                continue;
+            }
+
             console.printUser(input);
             session.addMessage(makeMessage(Role::User, input));
             logger.log("user_message", {{"content", input}});
