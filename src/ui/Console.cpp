@@ -406,8 +406,7 @@ bool detectColorSupport() {
     // SetConsoleMode failed — fall back to TERM check for third-party terminal
     // emulators (e.g. ansicon, ConEmu, Cmder) that set TERM=xterm or similar.
     // These emulators provide ANSI processing themselves, so the Windows console
-    // mode doesn't matter.
-    const auto term = readEnv("TERM");
+    // mode doesn't matter.  (term was already read from the environment above.)
     if (!term.empty() && term != "dumb") {
         return true;
     }
