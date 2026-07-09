@@ -8,7 +8,7 @@
 
 当前版本：v0.1.0。项目已完成 M0-M8 演示版闭环：M0-M5 覆盖 CMake + vcpkg 构建、OpenAI 兼容 API 对话、工具调用、权限确认、JSONL 日志、历史回放、配置诊断、ANSI 增强流式控制台界面和答辩材料；M6-M8 继续补充 Web 搜索、最小 MCP 客户端和跨环境工程化稳定性。
 
-在 v0.1.0 交付版之后，项目增强了 AgentLoop 的可测试性、终端呈现、搜索体验、MCP 集成和 Windows 构建稳定性：新增 `ContextManager` 上下文窗口、可注入的 `ILlmClient` 接口、独立 `tool_calls` 解析测试、Agent 主循环 mock LLM 自动化测试、`src/ui/Console.*` 流式控制台呈现模块、Bing RSS 优先的 Web 搜索、可由模型自动调用的内置 MCP 工具、Visual Studio generator 默认构建和 Windows 中文命令行参数修复。
+在 v0.1.0 交付版之后，项目增强了 AgentLoop 的可测试性、终端呈现、搜索体验、MCP 集成和 Windows 构建稳定性：新增 `ContextManager` 上下文窗口、可注入的 `ILlmClient` 接口、独立 `tool_calls` 解析测试、Agent 主循环 mock LLM 自动化测试、`src/ui/Console.*` 流式控制台呈现模块、Bing RSS 优先的 Web 搜索、可由模型自动调用的内置 MCP 工具、项目级 `AGENTS.md` 规范注入、Visual Studio generator 默认构建和 Windows 中文命令行参数修复。
 
 ## 快速开始
 
@@ -243,10 +243,16 @@ $env:OPENAI_MODEL="gpt-5.4-mini"
 
 每个 Skill 可以配置 `allowed_tools`，启用后 AgentLoop 会阻止该 Skill 白名单之外的工具调用。
 
+项目根目录的 `AGENTS.md` 会在程序启动时自动读取，并追加到 system prompt 中。它用于保存项目级规范，例如 C++17 约束、目录结构、构建命令、代码风格、测试要求和禁区规则。它和 Skill 的区别是：
+
+- `AGENTS.md`：全局项目规则，每次启动都会生效。
+- `/use-skill`：本轮对话的临时工作模式，可按 code review、debug、summary、test writer 等场景切换。
+
 ## 核心目标
 
 - 建立完整 Agent 主循环：输入、模型决策、工具调用、结果回填、多轮执行。
 - 通过 `ContextManager` 保留 system prompt 并限制发送给模型的上下文窗口。
+- 启动时自动读取根目录 `AGENTS.md`，将项目级编码规范、目录约定和行为偏好注入 system prompt。
 - 提供插件式工具系统，支持文件工具、命令工具、搜索工具等扩展。
 - 提供 `web_search` 安全工具和 `/search <query>` 命令，支持 Web 搜索、结构化结果整理和引用链接输出。
 - 接入 OpenAI 兼容格式的大模型 API。
@@ -313,6 +319,7 @@ cpp-ai-agent/
 | `CMakePresets.json` | CMake 构建预设，统一配置命令 |
 | `vcpkg.json` | vcpkg 依赖清单，声明第三方库 |
 | `.env.example` | 环境变量样例，不存放真实密钥 |
+| `AGENTS.md` | 项目级 Agent 规范文件，启动时追加到 system prompt |
 | `.env` | 本地真实环境变量文件，不提交到 Git |
 | `config/mcp_servers.json` | 外部 stdio MCP server 配置，默认示例为禁用状态 |
 | `config/skills.json` | Skill 配置，内置 `code_review`、`cpp_debug`、`project_summary`、`test_writer` |
@@ -359,7 +366,7 @@ cpp-ai-agent/
 | M5 | 完善 ANSI 流式控制台、配置诊断、Skill 和答辩演示 |
 | M6 | 增加 Web 搜索工具和 `/search <query>`，国内网络优先使用 Bing RSS，并提供 DuckDuckGo/Bing 兜底链接 |
 | M7 | 实现最小 MCP stdio 客户端、内置 MCP 测试 server、MCP 工具调用和外部 server 工具发现 |
-| M8 | 完成跨环境稳定性优化：Visual Studio generator 默认构建、NMake 备用 preset、固定 exe 输出目录、Windows 中文命令行参数修复和 GitHub/GitLab 同步流程 |
+| M8 | 完成工程化稳定性优化：`AGENTS.md` 项目级规范注入、Visual Studio generator 默认构建、NMake 备用 preset、固定 exe 输出目录、Windows 中文命令行参数修复和 GitHub/GitLab 同步流程 |
 
 ## 说明
 
