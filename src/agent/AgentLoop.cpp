@@ -18,6 +18,25 @@ std::string shortText(const std::string& value, std::size_t maxLength = 300) {
     return value.substr(0, maxLength) + "...";
 }
 
+/// Truncate a long tool result to keep the context window healthy.
+/// Preserves the head (first 1500 chars) and tail (last 500 chars) so the
+/// model can still see the beginning and end of large file contents.
+/// The model receives the truncated version; the UI displays the full text
+/// via the un-truncated AgentEvent.
+std::string truncateToolResult(const std::string& content, std::size_t maxLen = 2000) {
+    if (content.size() <= maxLen) {
+        return content;
+    }
+
+    const std::size_t headLen = 1500;
+    const std::size_t tailLen = 500;
+    const auto omitted = content.size() - headLen - tailLen;
+
+    return content.substr(0, headLen) +
+           "\n\n... [省略 " + std::to_string(omitted) + " 字符] ...\n\n" +
+           content.substr(content.size() - tailLen);
+}
+
 }  // namespace
 
 AgentLoop::AgentLoop(
@@ -27,7 +46,7 @@ AgentLoop::AgentLoop(
         storage::JsonLogger& logger,
         int maxIterations,
         AgentEventCallback onEvent,
-        int maxContextMessages,
+        int maxContextTokens,
         ToolPolicy toolPolicy
 )
     : llm_(llm),
@@ -36,7 +55,7 @@ AgentLoop::AgentLoop(
       logger_(logger),
       maxIterations_(std::max(1, maxIterations)),
       onEvent_(std::move(onEvent)),
-      context_(static_cast<std::size_t>(std::max(1, maxContextMessages))),
+      context_(static_cast<std::size_t>(std::max(1, maxContextTokens))),
       toolPolicy_(std::move(toolPolicy)) {}
 
 core::Message AgentLoop::runTurn(core::Session& session) const {
@@ -136,7 +155,7 @@ core::Message AgentLoop::executeToolCall(const core::ToolCall& toolCall) const {
 
         const auto result = tool->execute(args);
         if (result.success) {
-            toolMessage.content = result.output;
+            toolMessage.content = truncateToolResult(result.output);
         } else {
             toolMessage.content = "Tool failed: " + result.output;
         }

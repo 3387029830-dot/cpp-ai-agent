@@ -39,7 +39,7 @@ public:
         storage::JsonLogger& logger,
         int maxIterations,
         AgentEventCallback onEvent = {},
-        int maxContextMessages = 40,
+        int maxContextTokens = 8000,
         ToolPolicy toolPolicy = {}
     );
 

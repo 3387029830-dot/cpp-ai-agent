@@ -752,7 +752,7 @@ int main(int argc, char* argv[]) {
                     console.printWarning(event.detail);
                 }
             },
-            40,
+            8000,
             [&activeSkillName, &activeAllowedTools](const std::string& toolName) {
                 if (activeSkillName.empty() || activeAllowedTools.empty()) {
                     return std::string();

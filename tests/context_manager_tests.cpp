@@ -26,7 +26,8 @@ TEST_CASE("ContextManager preserves system prompt and newest messages") {
         message(Role::Assistant, "new assistant"),
     };
 
-    const auto window = ContextManager(3).buildWindow(messages);
+    // "system"(1) + "new user"(2) + "new assistant"(3) ≈ 6 tokens
+    const auto window = ContextManager(6).buildWindow(messages);
 
     REQUIRE(window.size() == 3);
     CHECK(window.at(0).content == "system");
@@ -40,6 +41,7 @@ TEST_CASE("ContextManager returns all messages when under limit") {
         message(Role::Assistant, "two"),
     };
 
+    // "one"(1) + "two"(1) ≈ 2 tokens, budget of 5 is plenty
     const auto window = ContextManager(5).buildWindow(messages);
 
     CHECK(window.size() == messages.size());
