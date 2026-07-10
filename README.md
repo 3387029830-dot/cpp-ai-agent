@@ -245,6 +245,7 @@ $env:OPENAI_MODEL="gpt-5.4-mini"
 ```
 
 在主对话中输入 `/`、`/?`、`/help` 或 `/commands` 会显示命令面板，列出当前可用的 slash 命令和常用独立演示命令，方便答辩时现场发现功能入口。
+命令面板按“主对话命令 / 独立运行命令 / 内部命令”分组，覆盖当前源码中已注册的所有可执行入口，包括 `/mcp` 和内部的 `/mcp-test-server`。
 
 每个 Skill 可以配置 `allowed_tools`，启用后 AgentLoop 会阻止该 Skill 白名单之外的工具调用。
 

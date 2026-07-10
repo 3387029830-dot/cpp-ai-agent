@@ -306,6 +306,8 @@ void printSearchPlaceholder() {
 
 void printCommandPalette() {
     std::cout << "commands> available slash commands\n";
+    std::cout << "\n";
+    std::cout << "commands> chat commands\n";
     std::cout << "  /help /? /commands\n";
     std::cout << "                   Show this command palette\n";
     std::cout << "  /skills          List configured Skills\n";
@@ -315,17 +317,28 @@ void printCommandPalette() {
     std::cout << "  /exit            Exit the chat\n\n";
 
     std::cout << "commands> standalone demo commands\n";
+    std::cout << "  ai-agent.exe /\n";
+    std::cout << "  ai-agent.exe /?\n";
+    std::cout << "  ai-agent.exe /help\n";
+    std::cout << "  ai-agent.exe /commands\n";
     std::cout << "  ai-agent.exe /config\n";
     std::cout << "  ai-agent.exe /doctor\n";
     std::cout << "  ai-agent.exe /demo\n";
     std::cout << "  ai-agent.exe /ui\n";
     std::cout << "  ai-agent.exe /search <query>\n";
+    std::cout << "  ai-agent.exe /skills\n";
+    std::cout << "  ai-agent.exe /use-skill\n";
+    std::cout << "  ai-agent.exe /mcp\n";
     std::cout << "  ai-agent.exe /mcp-demo\n";
     std::cout << "  ai-agent.exe /mcp-call-demo\n";
     std::cout << "  ai-agent.exe /mcp-connect <command> [args...]\n";
     std::cout << "  ai-agent.exe /history\n";
     std::cout << "  ai-agent.exe /replay <log.jsonl>\n";
     std::cout << "  ai-agent.exe /init-env deepseek|linkapi\n\n";
+
+    std::cout << "commands> internal command\n";
+    std::cout << "  ai-agent.exe /mcp-test-server\n";
+    std::cout << "                   Internal stdio MCP server used by /mcp-demo and /mcp-call-demo\n\n";
 
     std::cout << "commands> tip: type /use-skill code_review src/mcp to show Skill mode.\n\n";
 }
