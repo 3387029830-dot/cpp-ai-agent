@@ -235,12 +235,16 @@ $env:OPENAI_MODEL="gpt-5.4-mini"
 在主对话中可以启用 Skill，让 Agent 切换到对应工作模式：
 
 ```text
+/
+/help
 /skills
 /use-skill code_review src/mcp
 /use-skill cpp_debug build-log.txt
 /use-skill project_summary docs
 /use-skill test_writer tests
 ```
+
+在主对话中输入 `/`、`/?`、`/help` 或 `/commands` 会显示命令面板，列出当前可用的 slash 命令和常用独立演示命令，方便答辩时现场发现功能入口。
 
 每个 Skill 可以配置 `allowed_tools`，启用后 AgentLoop 会阻止该 Skill 白名单之外的工具调用。
 

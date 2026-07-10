@@ -304,6 +304,32 @@ void printSearchPlaceholder() {
     std::cout << "example> ai-agent.exe /search cpp-ai-agent MCP stdio\n";
 }
 
+void printCommandPalette() {
+    std::cout << "commands> available slash commands\n";
+    std::cout << "  /help /? /commands\n";
+    std::cout << "                   Show this command palette\n";
+    std::cout << "  /skills          List configured Skills\n";
+    std::cout << "  /use-skill NAME [target]\n";
+    std::cout << "                   Activate a Skill for this chat\n";
+    std::cout << "  /clear-skill     Clear the active Skill\n";
+    std::cout << "  /exit            Exit the chat\n\n";
+
+    std::cout << "commands> standalone demo commands\n";
+    std::cout << "  ai-agent.exe /config\n";
+    std::cout << "  ai-agent.exe /doctor\n";
+    std::cout << "  ai-agent.exe /demo\n";
+    std::cout << "  ai-agent.exe /ui\n";
+    std::cout << "  ai-agent.exe /search <query>\n";
+    std::cout << "  ai-agent.exe /mcp-demo\n";
+    std::cout << "  ai-agent.exe /mcp-call-demo\n";
+    std::cout << "  ai-agent.exe /mcp-connect <command> [args...]\n";
+    std::cout << "  ai-agent.exe /history\n";
+    std::cout << "  ai-agent.exe /replay <log.jsonl>\n";
+    std::cout << "  ai-agent.exe /init-env deepseek|linkapi\n\n";
+
+    std::cout << "commands> tip: type /use-skill code_review src/mcp to show Skill mode.\n\n";
+}
+
 void printSkills(const cpp_ai_agent::skills::SkillCatalog& catalog) {
     if (catalog.all().empty()) {
         std::cout << "skills> no skills configured.\n";
@@ -571,6 +597,11 @@ int main(int argc, char* argv[]) {
 
         if (argCount >= 2) {
             const std::string command = args.at(1);
+            if (command == "/" || command == "/?" || command == "/help" || command == "/commands") {
+                printCommandPalette();
+                return 0;
+            }
+
             if (command == "/history") {
                 const auto files = listHistoryFiles(std::filesystem::path(appConfig.historyDir));
                 if (files.empty()) {
@@ -833,6 +864,11 @@ int main(int argc, char* argv[]) {
                 continue;
             }
 
+            if (commandInput == "/" || commandInput == "/?" || commandInput == "/help" || commandInput == "/commands") {
+                printCommandPalette();
+                continue;
+            }
+
             if (commandInput == "/skills") {
                 printSkills(skillCatalog);
                 continue;
@@ -895,6 +931,12 @@ int main(int argc, char* argv[]) {
                     activeSkillTarget.clear();
                     activeAllowedTools.clear();
                 }
+                continue;
+            }
+
+            if (!commandInput.empty() && commandInput.front() == '/') {
+                console.printWarning("Unknown slash command: " + commandInput);
+                std::cout << "hint> Type / to show available commands.\n\n";
                 continue;
             }
 
