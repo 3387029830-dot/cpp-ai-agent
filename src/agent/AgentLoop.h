@@ -16,6 +16,7 @@ namespace cpp_ai_agent::agent {
 
 enum class AgentEventType {
     AssistantMessage,
+    AssistantChunk,   // streaming text delta — detail carries one chunk
     ToolCall,
     ToolResult,
     Warning,
@@ -40,7 +41,8 @@ public:
         int maxIterations,
         AgentEventCallback onEvent = {},
         int maxContextTokens = 8000,
-        ToolPolicy toolPolicy = {}
+        ToolPolicy toolPolicy = {},
+        bool enableStreaming = true
     );
 
     core::Message runTurn(core::Session& session) const;
@@ -57,6 +59,7 @@ private:
     AgentEventCallback onEvent_;
     core::ContextManager context_;
     ToolPolicy toolPolicy_;
+    bool enableStreaming_ = true;
 };
 
 }  // namespace cpp_ai_agent::agent

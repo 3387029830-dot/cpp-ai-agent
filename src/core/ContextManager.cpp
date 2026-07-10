@@ -18,6 +18,19 @@ std::size_t ContextManager::estimateTokens(const Message& msg) {
     return std::max<std::size_t>(1, chars / 4);
 }
 
+namespace {
+
+// A group of messages that must be kept together atomically.
+// Assistant messages with tool_calls and their subsequent Tool results
+// form an indivisible unit — splitting them causes "No tool output found"
+// errors from the LLM API.
+struct MessageGroup {
+    std::vector<Message> messages;
+    std::size_t tokens = 0;
+};
+
+}  // namespace
+
 std::vector<Message> ContextManager::buildWindow(const std::vector<Message>& messages) const {
     // Fast path: everything fits.
     std::size_t totalTokens = 0;
@@ -28,30 +41,77 @@ std::vector<Message> ContextManager::buildWindow(const std::vector<Message>& mes
         return messages;
     }
 
+    // ── Pass 1: group messages ──────────────────────────────────────
+    // An Assistant message that carries tool_calls and the Tool messages
+    // that follow it are treated as one atomic group.  Standalone
+    // messages (User, plain Assistant, etc.) each form their own group.
+    std::vector<MessageGroup> groups;
+    const bool hasSystem = !messages.empty() && messages.front().role == Role::System;
+
+    std::size_t idx = 0;
+    while (idx < messages.size()) {
+        const auto& current = messages[idx];
+
+        // System Prompt — always its own group (handled specially in pass 2).
+        if (idx == 0 && hasSystem) {
+            MessageGroup g;
+            g.messages.push_back(current);
+            g.tokens += estimateTokens(current);
+            groups.push_back(std::move(g));
+            ++idx;
+            continue;
+        }
+
+        // Assistant with tool_calls → group with all following Tool messages.
+        if (current.role == Role::Assistant && !current.toolCalls.empty()) {
+            MessageGroup g;
+            g.messages.push_back(current);
+            g.tokens += estimateTokens(current);
+            ++idx;
+            while (idx < messages.size() && messages[idx].role == Role::Tool) {
+                g.messages.push_back(messages[idx]);
+                g.tokens += estimateTokens(messages[idx]);
+                ++idx;
+            }
+            groups.push_back(std::move(g));
+        } else {
+            MessageGroup g;
+            g.messages.push_back(current);
+            g.tokens += estimateTokens(current);
+            groups.push_back(std::move(g));
+            ++idx;
+        }
+    }
+
+    // ── Pass 2: walk groups backwards, keep those that fit ──────────
     std::vector<Message> window;
     std::size_t usedTokens = 0;
 
-    // Always preserve the System Prompt (by convention it is the first message).
-    const bool hasSystem = !messages.empty() && messages.front().role == Role::System;
+    // System Prompt always stays.
+    std::size_t startIdx = 0;
     if (hasSystem) {
-        window.push_back(messages.front());
-        usedTokens += estimateTokens(messages.front());
+        for (const auto& m : groups[0].messages) {
+            window.push_back(m);
+        }
+        usedTokens += groups[0].tokens;
+        startIdx = 1;
     }
 
-    // Walk backwards from the newest message, keeping as many as the budget allows.
-    // This preserves the most recent conversational context.
-    for (auto it = messages.rbegin(); it != messages.rend(); ++it) {
-        if (hasSystem && it == messages.rbegin() + (messages.size() - 1)) {
-            continue;  // already preserved as System Prompt
-        }
-
-        const auto tokens = estimateTokens(*it);
-        if (usedTokens + tokens > maxTokens_) {
+    // Collect groups from newest to oldest while the token budget allows.
+    std::vector<const MessageGroup*> keptGroups;
+    for (int i = static_cast<int>(groups.size()) - 1; i >= static_cast<int>(startIdx); --i) {
+        if (usedTokens + groups[static_cast<std::size_t>(i)].tokens > maxTokens_) {
             break;
         }
-        usedTokens += tokens;
-        // Insert after System Prompt (if any) to maintain chronological order.
-        window.insert(hasSystem ? window.begin() + 1 : window.begin(), *it);
+        usedTokens += groups[static_cast<std::size_t>(i)].tokens;
+        keptGroups.push_back(&groups[static_cast<std::size_t>(i)]);
+    }
+
+    // Re-insert in chronological order (reverse of the backwards collection).
+    for (auto it = keptGroups.rbegin(); it != keptGroups.rend(); ++it) {
+        for (const auto& m : (*it)->messages) {
+            window.push_back(m);
+        }
     }
 
     return window;

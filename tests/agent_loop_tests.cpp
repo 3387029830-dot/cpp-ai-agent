@@ -40,23 +40,28 @@ public:
 
 class ScriptedLlm final : public cpp_ai_agent::llm::ILlmClient {
 public:
+    using ChunkCallback = cpp_ai_agent::llm::ILlmClient::ChunkCallback;
+
     explicit ScriptedLlm(std::vector<cpp_ai_agent::core::Message> responses)
         : responses_(std::move(responses)) {}
 
-    cpp_ai_agent::core::Message chat(const std::vector<cpp_ai_agent::core::Message>& messages) const override {
-        return chat(messages, nlohmann::json::array());
-    }
-
-    cpp_ai_agent::core::Message chat(
+    cpp_ai_agent::core::Message chatStream(
         const std::vector<cpp_ai_agent::core::Message>& messages,
-        const nlohmann::json& toolsSpec
+        const nlohmann::json& toolsSpec,
+        ChunkCallback onChunk
     ) const override {
         seenMessages.push_back(messages);
         seenTools.push_back(toolsSpec);
         if (calls >= responses_.size()) {
-            return assistant("done");
+            auto msg = assistant("done");
+            if (onChunk) onChunk(msg.content);
+            return msg;
         }
-        return responses_.at(calls++);
+        auto msg = responses_.at(calls++);
+        if (onChunk && !msg.content.empty()) {
+            onChunk(msg.content);
+        }
+        return msg;
     }
 
     static cpp_ai_agent::core::Message assistant(std::string content) {

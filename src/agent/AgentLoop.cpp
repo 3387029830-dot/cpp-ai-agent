@@ -47,7 +47,8 @@ AgentLoop::AgentLoop(
         int maxIterations,
         AgentEventCallback onEvent,
         int maxContextTokens,
-        ToolPolicy toolPolicy
+        ToolPolicy toolPolicy,
+        bool enableStreaming
 )
     : llm_(llm),
       tools_(tools),
@@ -56,11 +57,20 @@ AgentLoop::AgentLoop(
       maxIterations_(std::max(1, maxIterations)),
       onEvent_(std::move(onEvent)),
       context_(static_cast<std::size_t>(std::max(1, maxContextTokens))),
-      toolPolicy_(std::move(toolPolicy)) {}
+      toolPolicy_(std::move(toolPolicy)),
+      enableStreaming_(enableStreaming) {}
 
 core::Message AgentLoop::runTurn(core::Session& session) const {
     for (int iteration = 0; iteration < maxIterations_; ++iteration) {
-        auto assistant = llm_.chat(context_.buildWindow(session.messages()), tools_.toolsSpec());
+        auto assistant = llm_.chatStream(
+            context_.buildWindow(session.messages()),
+            tools_.toolsSpec(),
+            enableStreaming_
+                ? llm::ILlmClient::ChunkCallback{[this](const std::string& chunk) {
+                      emit({AgentEventType::AssistantChunk, "", chunk});
+                  }}
+                : llm::ILlmClient::ChunkCallback{}
+        );
         session.addMessage(assistant);
         logger_.log("assistant_message", {{"content", assistant.content}});
 
