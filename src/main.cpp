@@ -547,6 +547,7 @@ int main(int argc, char* argv[]) {
     using cpp_ai_agent::skills::loadSkillCatalog;
     using cpp_ai_agent::skills::makeSkillSystemMessage;
     using cpp_ai_agent::storage::listHistoryFiles;
+    using cpp_ai_agent::storage::loadMessagesFromHistory;
     using cpp_ai_agent::storage::JsonLogger;
     using cpp_ai_agent::storage::replayHistoryFile;
     using cpp_ai_agent::tools::EditFileTool;
@@ -569,6 +570,11 @@ int main(int argc, char* argv[]) {
         const auto appConfig = loadAppConfig("config/settings.json");
         const auto skillCatalog = loadSkillCatalog("config/skills.json");
 
+        // When /load is used as a CLI argument, history is parsed here
+        // and the messages are injected into the session below.
+        std::vector<cpp_ai_agent::core::Message> preloadedMessages;
+        std::string preloadedSource;
+
         if (argCount >= 2) {
             const std::string command = args.at(1);
             if (command == "/history") {
@@ -579,8 +585,12 @@ int main(int argc, char* argv[]) {
                 }
 
                 for (const auto& file : files) {
-                    std::cout << file.modifiedTime << "  " << file.size << " bytes  "
-                              << file.path.string() << "\n";
+                    std::cout << file.modifiedTime << "  "
+                              << std::setw(8) << file.size << " bytes  ";
+                    if (!file.title.empty()) {
+                        std::cout << "[" << file.title << "]  ";
+                    }
+                    std::cout << file.path.string() << "\n";
                 }
                 return 0;
             }
@@ -700,6 +710,25 @@ int main(int argc, char* argv[]) {
                 }
                 return 0;
             }
+
+            if (command == "/load") {
+                if (argCount < 3) {
+                    std::cout << "usage> ai-agent.exe /load logs\\session-*.jsonl\n";
+                    return 1;
+                }
+                // Load messages now and fall through to the REPL.
+                const std::filesystem::path loadPath(args.at(2));
+                int skipped = 0;
+                preloadedMessages = loadMessagesFromHistory(loadPath, &skipped);
+                preloadedSource = loadPath.filename().string();
+                std::cout << "loaded> " << preloadedSource
+                          << " (" << preloadedMessages.size() << " messages)";
+                if (skipped > 0) {
+                    std::cout << ", skipped " << skipped << " corrupted lines";
+                }
+                std::cout << "\n\n";
+                // Fall through — do NOT return.
+            }
         }
 
         LlmClient llm(appConfig.llm);
@@ -813,6 +842,14 @@ int main(int argc, char* argv[]) {
 
         session.addMessage(makeMessage(Role::System, systemPrompt));
 
+        // Inject messages loaded via CLI /load, if any.
+        if (!preloadedMessages.empty()) {
+            for (const auto& msg : preloadedMessages) {
+                session.addMessage(msg);
+            }
+        }
+
+        bool firstUserMessage = preloadedMessages.empty();
         std::string input;
         while (true) {
             std::cout << "\033[36m▸ you\033[0m ";
@@ -896,6 +933,150 @@ int main(int argc, char* argv[]) {
                     activeAllowedTools.clear();
                 }
                 continue;
+            }
+
+            // ── /load [path] — resume a previous session ─────────────
+            const std::string loadPrefix = "/load";
+            if (commandInput == loadPrefix || commandInput.rfind("/load ", 0) == 0) {
+                std::filesystem::path loadPath;
+
+                // /load without arguments → show file selector.
+                if (commandInput == loadPrefix) {
+                    const auto files = listHistoryFiles(std::filesystem::path(appConfig.historyDir));
+                    if (files.empty()) {
+                        std::cout << "load> no logs found in " << appConfig.historyDir << "\n\n";
+                        continue;
+                    }
+
+                    std::cout << "load> select a session to resume:\n\n";
+                    for (std::size_t i = 0; i < files.size(); ++i) {
+                        std::cout << "  [" << (i + 1) << "] "
+                                  << files[i].modifiedTime << "  "
+                                  << std::setw(7) << files[i].size << " bytes  ";
+                        if (!files[i].title.empty()) {
+                            std::cout << files[i].title;
+                        } else {
+                            std::cout << "(no title)";
+                        }
+                        std::cout << "\n";
+                    }
+                    std::cout << "  [0] cancel\n\n";
+
+                    std::cout << "\033[36m▸ load\033[0m ";
+                    std::string selection;
+                    if (!std::getline(std::cin, selection)) {
+                        std::cout << "\n";
+                        continue;
+                    }
+                    selection = trimCommandInput(selection);
+
+                    if (selection == "0" || selection.empty()) {
+                        std::cout << "load> cancelled.\n\n";
+                        continue;
+                    }
+
+                    // Try numeric index.
+                    try {
+                        const int index = std::stoi(selection);
+                        if (index >= 1 && static_cast<std::size_t>(index) <= files.size()) {
+                            loadPath = files[static_cast<std::size_t>(index) - 1].path;
+                        }
+                    } catch (const std::exception&) {
+                        // Not a number — treat as a path.
+                    }
+
+                    if (loadPath.empty()) {
+                        // Treat input as a file path.
+                        loadPath = std::filesystem::path(selection);
+                    }
+                } else {
+                    // /load <path>
+                    auto pathStr = trimCommandInput(commandInput.substr(loadPrefix.size()));
+                    loadPath = std::filesystem::path(pathStr);
+                }
+
+                // Guard: don't load the currently active log file.
+                // Use canonical paths when both exist; skip the check
+                // gracefully when either path is not a regular file.
+                bool sameFile = false;
+                std::error_code ec;
+                if (std::filesystem::exists(loadPath, ec) &&
+                    std::filesystem::exists(logger.path(), ec)) {
+                    try {
+                        sameFile = std::filesystem::equivalent(loadPath, logger.path(), ec);
+                    } catch (const std::filesystem::filesystem_error&) {
+                        sameFile = false;
+                    }
+                }
+                if (sameFile) {
+                    std::cout << "load> cannot load the currently active log file.\n\n";
+                    continue;
+                }
+
+                // Parse the history file.
+                int skipped = 0;
+                std::vector<cpp_ai_agent::core::Message> loadedMessages;
+                try {
+                    loadedMessages = loadMessagesFromHistory(loadPath, &skipped);
+                } catch (const std::exception& ex) {
+                    console.printError(std::string("load: ") + ex.what());
+                    continue;
+                }
+
+                if (loadedMessages.empty()) {
+                    std::cout << "load> no messages found in " << loadPath.string() << "\n\n";
+                    continue;
+                }
+
+                // Rebuild session: fresh System Prompt + loaded messages.
+                session = Session("default");
+                session.addMessage(makeMessage(Role::System, systemPrompt));
+
+                // Print a brief summary to help the user recall the context.
+                std::cout << "loaded> " << loadPath.filename().string()
+                          << " (" << loadedMessages.size() << " messages)";
+                if (skipped > 0) {
+                    std::cout << ", skipped " << skipped << " corrupted lines";
+                }
+                std::cout << "\n";
+
+                // Show the first user message as a memory prompt.
+                for (const auto& msg : loadedMessages) {
+                    if (msg.role == Role::User) {
+                        const auto preview = msg.content.size() > 200
+                                                 ? msg.content.substr(0, 200) + "..."
+                                                 : msg.content;
+                        std::cout << "context> " << preview << "\n\n";
+                        break;
+                    }
+                }
+
+                for (const auto& msg : loadedMessages) {
+                    session.addMessage(msg);
+                }
+
+                firstUserMessage = false;
+                logger.log("session_loaded", {
+                    {"source", loadPath.string()},
+                    {"messages", loadedMessages.size()},
+                });
+                continue;
+            }
+
+            // Rename the log file after the first meaningful user message.
+            if (firstUserMessage) {
+                firstUserMessage = false;
+                // Use the first line or first 60 characters as the title.
+                std::string title = commandInput;
+                const auto newlinePos = title.find('\n');
+                if (newlinePos != std::string::npos) {
+                    title = title.substr(0, newlinePos);
+                }
+                if (title.size() > 60) {
+                    title = title.substr(0, 60);
+                }
+                logger.rename(title);
+                std::cout << "log> " << logger.path().filename().string() << "\n";
             }
 
             session.addMessage(makeMessage(Role::User, input));

@@ -63,6 +63,31 @@ std::string redactSensitiveText(const std::string& text) {
     return std::regex_replace(text, std::regex(R"(sk-[^"'\s,}]+)"), "sk-***REDACTED***");
 }
 
+/// Build a compact diagnostic string from a JSON request body.
+/// Includes message count and the first 12 roles so we can spot
+/// ordering problems (e.g. orphaned tool messages) without dumping
+/// the entire body.
+std::string requestDiagnostic(const std::string& requestBodyStr) {
+    try {
+        const auto reqJson = nlohmann::json::parse(requestBodyStr);
+        const auto msgs = reqJson.value("messages", nlohmann::json::array());
+        std::string diag = " | messages: " + std::to_string(msgs.size());
+        diag += " | roles:";
+        int count = 0;
+        for (const auto& m : msgs) {
+            if (++count > 12) {
+                diag += " ...";
+                break;
+            }
+            const auto r = m.value("role", "?");
+            diag += " " + std::string(r.size() > 6 ? r.substr(0, 6) : r);
+        }
+        return diag;
+    } catch (...) {
+        return " | (failed to parse request body for diagnostics)";
+    }
+}
+
 /// Holds incremental tool-call data assembled from SSE deltas.
 /// OpenAI streams tool_calls piecemeal: each delta carries an index,
 /// and arguments arrive across multiple events.
@@ -153,8 +178,10 @@ core::Message LlmClient::chatStream(
     // ── Non-streaming path: no callback → traditional HTTP ─────────
     // Preserves response.text for error reporting.
     if (!onChunk) {
+        const std::string requestBodyStr = requestBody.dump();
+
         cpr::Session session;
-        configureSession(session, url, requestBody.dump());
+        configureSession(session, url, requestBodyStr);
 
         const auto response = session.Post();
 
@@ -165,7 +192,7 @@ core::Message LlmClient::chatStream(
         if (response.status_code < 200 || response.status_code >= 300) {
             throw std::runtime_error(
                 "LLM API returned HTTP " + std::to_string(response.status_code) + ": " +
-                redactSensitiveText(response.text)
+                redactSensitiveText(response.text) + requestDiagnostic(requestBodyStr)
             );
         }
 
@@ -179,8 +206,10 @@ core::Message LlmClient::chatStream(
     std::string accumulatedContent;
     std::map<int, ToolCallFragment> toolCallFragments;
 
+    const std::string requestBodyStr = requestBody.dump();
+
     cpr::Session session;
-    configureSession(session, url, requestBody.dump());
+    configureSession(session, url, requestBodyStr);
 
     session.SetServerSentEventCallback(cpr::ServerSentEventCallback{
         [&](cpr::ServerSentEvent&& event, intptr_t /*userdata*/) -> bool {
@@ -252,8 +281,10 @@ core::Message LlmClient::chatStream(
     }
 
     if (response.status_code < 200 || response.status_code >= 300) {
+        const auto apiError = response.text.empty() ? "(empty body)" : redactSensitiveText(response.text);
         throw std::runtime_error(
-            "LLM API returned HTTP " + std::to_string(response.status_code)
+            "LLM API returned HTTP " + std::to_string(response.status_code) +
+            ": " + apiError + requestDiagnostic(requestBodyStr)
         );
     }
 
