@@ -155,6 +155,14 @@ void JsonLogger::rename(std::string_view newTitle) {
     if (!output_) {
         std::cerr << "warning> failed to reopen log file after rename: "
                   << path_.string() << "\n";
+        // Fall back to a fresh log file so subsequent log() calls
+        // are not silently discarded into a dead stream.
+        path_ = parentDir / ("session-" + timestampForFileName() + ".jsonl");
+        output_.clear();
+        output_.open(path_, std::ios::out | std::ios::app);
+        if (output_) {
+            std::cerr << "warning> logging redirected to " << path_.string() << "\n";
+        }
     }
 }
 
