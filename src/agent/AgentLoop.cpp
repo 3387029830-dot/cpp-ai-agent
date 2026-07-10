@@ -74,16 +74,20 @@ core::Message AgentLoop::runTurn(core::Session& session) const {
         session.addMessage(assistant);
         logger_.log("assistant_message", {{"content", assistant.content}});
 
+        // Always signal end of assistant response before tool calls.
+        // This ensures the UI closes the streaming block (footer + newline)
+        // and tool-call lines don't run into the assistant text.
+        if (enableStreaming_) {
+            emit({AgentEventType::AssistantDone, "", ""});
+        } else {
+            emit({
+                AgentEventType::AssistantMessage,
+                "assistant",
+                assistant.content,
+            });
+        }
+
         if (assistant.toolCalls.empty()) {
-            if (enableStreaming_) {
-                emit({AgentEventType::AssistantDone, "", ""});
-            } else {
-                emit({
-                    AgentEventType::AssistantMessage,
-                    "assistant",
-                    assistant.content,
-                });
-            }
             return assistant;
         }
 
@@ -151,7 +155,7 @@ core::Message AgentLoop::executeToolCall(const core::ToolCall& toolCall) const {
 
     if (toolPolicy_) {
         const auto denial = toolPolicy_(toolCall.name);
-        if (!denial.empty()) {//被skill拦截
+        if (!denial.empty()) {
             toolMessage.content = denial;
             return toolMessage;
         }

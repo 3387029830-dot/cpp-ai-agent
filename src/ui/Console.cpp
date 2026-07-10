@@ -247,7 +247,26 @@ void Console::printAssistantChunk(const std::string& chunk) {
         printAssistantHeader();
         streaming_ = true;
     }
-    std::cout << chunk << std::flush;
+
+    if (!typewriter_) {
+        // Raw output — print the whole chunk at once.
+        std::cout << chunk << std::flush;
+        return;
+    }
+
+    // Smooth typewriter: render character-by-character at a fixed cadence.
+    // This spreads bursty SSE events into a steady visual stream, hiding
+    // the "burst … pause … burst" rhythm of the API.
+    // UTF-8 code-point boundaries are respected so multi-byte characters
+    // (CJK, emoji, etc.) are never split mid-sequence.
+    std::size_t i = 0;
+    while (i < chunk.size()) {
+        const auto charLen = utf8CharLen(static_cast<unsigned char>(chunk[i]));
+        const auto step = std::min<std::size_t>(charLen, chunk.size() - i);
+        std::cout << chunk.substr(i, step) << std::flush;
+        i += step;
+        std::this_thread::sleep_for(std::chrono::milliseconds(streamCharDelayMs_));
+    }
 }
 
 void Console::printAssistantFooter() const {

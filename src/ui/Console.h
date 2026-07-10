@@ -43,6 +43,7 @@ private:
     int charsPerStep_ = 3;
     int stepDelayMs_ = 12;
     int maxTypewriterChars_ = 1200;
+    int streamCharDelayMs_ = 8;   // per-char delay (ms) for smooth streaming output
 };
 
 bool detectColorSupport();
