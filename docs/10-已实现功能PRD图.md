@@ -1,6 +1,6 @@
 # cpp-ai-agent 已实现功能 PRD 图
 
-> 日期：2026-07-07
+> 日期：2026-07-10
 
 ---
 
@@ -73,14 +73,14 @@
 | **验收标准** | 1) 青色标签；2) 每行缩进 2 空格；3) 多行文本正确处理 |
 | **实现位置** | `src/ui/Console.cpp:163-167` |
 
-### 2.4 Assistant 打字机效果
+### 2.4 Assistant 流式输出（SSE + 平滑渲染）
 
 | 项目 | 内容 |
-| **需求描述** | Assistant 回复以打字机效果流式输出 |
-| **输入** | Assistant 回复文本（UTF-8） |
-| **输出** | 分组逐字终端输出 |
-| **验收标准** | 1) 按 UTF-8 字符边界分组（每组 3 字符）；2) 每组间隔 12ms；3) 最大打字机输出 1200 字符，超出直接打印；4) 非交互模式整段输出；5) bold `▸ assistant` 标签 |
-| **实现位置** | `src/ui/Console.cpp:169-197` |
+| **需求描述** | Assistant 回复通过 SSE 逐 token 实时输出，并在客户端逐字平滑渲染 |
+| **输入** | SSE 事件中的文本增量 chunk（UTF-8） |
+| **输出** | 实时终端输出 |
+| **验收标准** | 1) `printAssistantChunk()` 内部管理流式状态，首 chunk 自动打印 `▸ assistant` 头部；2) `finishAssistantStream()` 闭合流式块（打印 `\n\n` 尾部并重置状态）；3) `typewriter_` 启用时按 UTF-8 字符边界逐字输出（默认 8ms/字），平滑 API 的 burst 推送；4) 非交互模式整段输出（无延迟）；5) 流式状态完全内聚在 Console 内，main.cpp 零状态泄漏 |
+| **实现位置** | `src/ui/Console.cpp:245-268` |
 
 ### 2.5 Tool Call 展示
 
@@ -134,20 +134,20 @@
 ### 3.1 ILlmClient 接口
 
 | 项目 | 内容 |
-| **需求描述** | 定义 LLM 客户端统一接口，支持注入 mock 做单元测试 |
-| **输入** | `chat(messages)` 或 `chat(messages, toolsSpec)` |
+| **需求描述** | 定义 LLM 客户端统一接口，支持注入 mock 做单元测试，单一纯虚入口 |
+| **输入** | `chatStream(messages, toolsSpec, onChunk)` — `onChunk` 为可选的 `ChunkCallback` |
 | **输出** | `Message` 对象（Role::Assistant） |
-| **验收标准** | 1) 纯虚接口，两种重载；2) AgentLoop 依赖接口而非具体类；3) 测试可注入 mock 实现 |
-| **实现位置** | `src/llm/LlmClient.h:19-28` |
+| **验收标准** | 1) 仅一个纯虚方法 `chatStream()`；2) `chat()` 是非虚便利方法，内部调 `chatStream()` 传空回调（走传统 HTTP 路径）；3) AgentLoop 依赖接口而非具体类；4) 测试可注入 mock 实现（实现 `chatStream` 即可） |
+| **实现位置** | `src/llm/LlmClient.h:24-42` |
 
-### 3.2 LlmClient HTTP 调用
+### 3.2 LlmClient SSE 流式调用
 
 | 项目 | 内容 |
-| **需求描述** | 发送 OpenAI 兼容格式的 chat completions 请求 |
-| **输入** | messages 列表 + 可选 toolsSpec |
+| **需求描述** | 通过 SSE 协议发送 OpenAI 兼容格式的 chat completions 流式请求，逐 token 推送 |
+| **输入** | messages 列表 + 可选 toolsSpec + 可选 ChunkCallback |
 | **输出** | assistant Message（含 content 和可能的 toolCalls） |
-| **验收标准** | 1) POST `{baseUrl}/chat/completions`；2) 请求体含 model/messages/tools/tool_choice 字段；3) tool_calls 正确序列化（id/type:function/function:{name,arguments}）；4) tool_call_id 正确附加到 tool 消息；5) 错误时抛出异常并脱敏 API Key（`sk-***REDACTED***`）；6) Windows Schannel 禁用证书吊销检查；7) 支持 HTTP 代理 |
-| **实现位置** | `src/llm/LlmClient.cpp:66-133` |
+| **验收标准** | 1) `stream: true` 时通过 cpr `ServerSentEventCallback` 解析 `text/event-stream`；2) 每 event 解析 `delta.content` → 累加 + 调 `onChunk(chunk)`；3) `delta.tool_calls` 按 index 增量累积到 `ToolCallFragment`（id/name/arguments），name 仅首次非空时设置（防止后续空 name 覆盖）；4) `onChunk` 为空时走传统 HTTP 路径（保留 `response.text` 用于错误报告）；5) `configureSession()` 消除流式/非流式路径的 URL/Header/SSL/Proxy 重复代码；6) `[DONE]` 标记流结束；7) 错误时抛出异常并脱敏 API Key |
+| **实现位置** | `src/llm/LlmClient.cpp:114-265` |
 
 ### 3.3 LlmParsing 解析
 
@@ -165,11 +165,11 @@
 ### 4.1 AgentLoop 核心循环
 
 | 项目 | 内容 |
-| **需求描述** | 实现 LLM ↔ 工具调用的完整闭环 |
+| **需求描述** | 实现 LLM ↔ 工具调用的完整闭环，支持 SSE 流式输出 |
 | **输入** | Session（含用户消息和 system prompt） |
 | **输出** | assistant 最终回复 Message |
-| **验收标准** | 1) 通过 ContextManager 构建上下文窗口传给 LLM；2) LLM 返回无 tool_calls 则直接返回回复；3) 有 tool_calls 则逐条执行（ToolRegistry 查找 → PermissionManager 审批 → 执行）；4) 结果以 Role::Tool 消息回填 Session；5) 继续调用 LLM 直至无工具调用或达到最大轮次（默认 10）；6) 超轮次返回警告消息；7) 通过 AgentEventCallback 推送事件给 Console |
-| **实现位置** | `src/agent/AgentLoop.cpp:40-97` |
+| **验收标准** | 1) 通过 `chatStream()` 调用 LLM，`enableStreaming` 控制是否传 ChunkCallback；2) 流式模式下每个 text delta 发射 `AssistantChunk` 事件；3) 响应结束时先发射 `AssistantDone`（流式）或 `AssistantMessage`（非流式）闭合 UI 块，再处理 tool_calls（防止输出粘连）；4) 有 tool_calls 则逐条执行（ToolRegistry 查找 → PermissionManager 审批 → 执行）；5) 结果以 Role::Tool 消息回填 Session；6) 继续调用 LLM 直至无工具调用或达到最大轮次（默认 10）；7) 超轮次返回警告消息 |
+| **实现位置** | `src/agent/AgentLoop.cpp:63-133` |
 
 ### 4.2 工具执行子流程
 
