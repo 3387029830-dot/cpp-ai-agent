@@ -1,4 +1,5 @@
 #include "tools/WebSearchTool.h"
+#include "utils/Encoding.h"
 
 #include <algorithm>
 #include <cpr/cpr.h>
@@ -225,7 +226,8 @@ ToolResult WebSearchTool::execute(const nlohmann::json& args) const {
 
         const auto bingResponse = bingSession.Get();
         if (!bingResponse.error && bingResponse.status_code >= 200 && bingResponse.status_code < 300) {
-            const auto formatted = formatBingRssResults(query, bingResponse.text, maxResults);
+            const auto safeText = cpp_ai_agent::utils::ensureUtf8(bingResponse.text);
+            const auto formatted = formatBingRssResults(query, safeText, maxResults);
             if (formatted.find("(no structured results returned)") == std::string::npos) {
                 auto result = ToolResult{true, formatted, "Web search: " + query};
                 cache_[cacheKey] = {result, now};
@@ -295,7 +297,8 @@ ToolResult WebSearchTool::execute(const nlohmann::json& args) const {
             return fallbackResult;
         }
 
-        const auto body = nlohmann::json::parse(response.text);
+        const auto safeText = cpp_ai_agent::utils::ensureUtf8(response.text);
+        const auto body = nlohmann::json::parse(safeText);
         const auto formatted = formatDuckDuckGoResults(query, body, maxResults);
         auto result = ToolResult{true, formatted, "Web search: " + query};
         cache_[cacheKey] = {result, now};

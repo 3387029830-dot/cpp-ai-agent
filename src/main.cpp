@@ -15,6 +15,7 @@
 #include "tools/ToolRegistry.h"
 #include "tools/WebSearchTool.h"
 #include "ui/Console.h"
+#include "utils/Encoding.h"
 
 #include <algorithm>
 #include <cctype>
@@ -116,18 +117,7 @@ ConsoleEncoding configureConsoleEncoding() {
 }
 
 bool isValidUtf8(const std::string& value) {
-    if (value.empty()) {
-        return true;
-    }
-
-    return MultiByteToWideChar(
-               CP_UTF8,
-               MB_ERR_INVALID_CHARS,
-               value.data(),
-               static_cast<int>(value.size()),
-               nullptr,
-               0
-           ) > 0;
+    return cpp_ai_agent::utils::isValidUtf8(value);
 }
 
 std::string convertToUtf8(const std::string& value, ConsoleEncoding encoding) {
@@ -135,62 +125,15 @@ std::string convertToUtf8(const std::string& value, ConsoleEncoding encoding) {
         return value;
     }
 
-    if (!encoding.stdinIsConsole && isValidUtf8(value)) {
+    if (!encoding.stdinIsConsole && cpp_ai_agent::utils::isValidUtf8(value)) {
         return value;
     }
 
-    if (encoding.stdinIsConsole && encoding.inputCodePage == CP_UTF8 && isValidUtf8(value)) {
+    if (encoding.stdinIsConsole && encoding.inputCodePage == CP_UTF8 && cpp_ai_agent::utils::isValidUtf8(value)) {
         return value;
     }
 
-    const auto wideLength = MultiByteToWideChar(
-        encoding.inputCodePage,
-        0,
-        value.data(),
-        static_cast<int>(value.size()),
-        nullptr,
-        0
-    );
-    if (wideLength <= 0) {
-        return value;
-    }
-
-    std::wstring wide(static_cast<std::size_t>(wideLength), L'\0');
-    MultiByteToWideChar(
-        encoding.inputCodePage,
-        0,
-        value.data(),
-        static_cast<int>(value.size()),
-        wide.data(),
-        wideLength
-    );
-
-    const auto utf8Length = WideCharToMultiByte(
-        CP_UTF8,
-        0,
-        wide.data(),
-        wideLength,
-        nullptr,
-        0,
-        nullptr,
-        nullptr
-    );
-    if (utf8Length <= 0) {
-        return value;
-    }
-
-    std::string utf8(static_cast<std::size_t>(utf8Length), '\0');
-    WideCharToMultiByte(
-        CP_UTF8,
-        0,
-        wide.data(),
-        wideLength,
-        utf8.data(),
-        utf8Length,
-        nullptr,
-        nullptr
-    );
-    return utf8;
+    return cpp_ai_agent::utils::toUtf8(value, encoding.inputCodePage);
 }
 #else
 struct ConsoleEncoding {};
