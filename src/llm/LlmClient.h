@@ -4,8 +4,13 @@
 
 #include <nlohmann/json_fwd.hpp>
 
+#include <functional>
 #include <string>
 #include <vector>
+
+namespace cpr {
+class Session;
+}
 
 namespace cpp_ai_agent::llm {
 
@@ -18,12 +23,21 @@ struct LlmConfig {
 
 class ILlmClient {
 public:
+    using ChunkCallback = std::function<void(const std::string& chunk)>;
+
     virtual ~ILlmClient() = default;
 
-    virtual core::Message chat(const std::vector<core::Message>& messages) const = 0;
-    virtual core::Message chat(
+    // Convenience overloads — non-virtual, delegate to chatStream.
+    // Implemented in LlmClient.cpp (requires full nlohmann::json definition).
+    core::Message chat(const std::vector<core::Message>& messages) const;
+    core::Message chat(const std::vector<core::Message>& messages,
+                       const nlohmann::json& toolsSpec) const;
+
+    // The single pure-virtual entry point.
+    virtual core::Message chatStream(
         const std::vector<core::Message>& messages,
-        const nlohmann::json& toolsSpec
+        const nlohmann::json& toolsSpec,
+        ChunkCallback onChunk
     ) const = 0;
 };
 
@@ -32,13 +46,17 @@ public:
     explicit LlmClient(LlmConfig config);
     ~LlmClient() override = default;
 
-    core::Message chat(const std::vector<core::Message>& messages) const override;
-    core::Message chat(
+    core::Message chatStream(
         const std::vector<core::Message>& messages,
-        const nlohmann::json& toolsSpec
+        const nlohmann::json& toolsSpec,
+        ChunkCallback onChunk
     ) const override;
 
 private:
+    void configureSession(cpr::Session& session,
+                          const std::string& url,
+                          const std::string& body) const;
+
     LlmConfig config_;
 };
 
