@@ -741,7 +741,13 @@ int main(int argc, char* argv[]) {
             [&console, &tools](const cpp_ai_agent::agent::AgentEvent& event) {
                 using cpp_ai_agent::agent::AgentEventType;
 
-                if (event.type == AgentEventType::ToolCall) {
+                if (event.type == AgentEventType::AssistantChunk) {
+                    console.printAssistantChunk(event.detail);
+                } else if (event.type == AgentEventType::AssistantDone) {
+                    console.finishAssistantStream();
+                } else if (event.type == AgentEventType::AssistantMessage) {
+                    console.printAssistant(event.detail);
+                } else if (event.type == AgentEventType::ToolCall) {
                     const auto* tool = tools.find(event.title);
                     const auto risk =
                         tool == nullptr ? "unknown" : cpp_ai_agent::security::riskLevelToString(tool->risk());
@@ -896,8 +902,7 @@ int main(int argc, char* argv[]) {
             logger.log("user_message", {{"content", input}});
 
             try {
-                const auto reply = agentLoop.runTurn(session);
-                console.printAssistant(reply.content);
+                agentLoop.runTurn(session);
             } catch (const std::exception& ex) {
                 console.printError(ex.what());
                 std::cout << "hint> Check OPENAI_API_KEY, config/settings.json, and network access.\n";
