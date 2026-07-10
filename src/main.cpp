@@ -767,6 +767,10 @@ int main(int argc, char* argv[]) {
                 const std::filesystem::path loadPath(args.at(2));
                 int skipped = 0;
                 preloadedMessages = loadMessagesFromHistory(loadPath, &skipped);
+                if (preloadedMessages.empty()) {
+                    std::cout << "load> no messages found in " << loadPath.string() << "\n";
+                    return 1;
+                }
                 preloadedSource = loadPath.filename().string();
                 std::cout << "loaded> " << preloadedSource
                           << " (" << preloadedMessages.size() << " messages)";
@@ -995,18 +999,36 @@ int main(int argc, char* argv[]) {
                 // /load without arguments → show file selector.
                 if (commandInput == loadPrefix) {
                     const auto files = listHistoryFiles(std::filesystem::path(appConfig.historyDir));
-                    if (files.empty()) {
+                    std::vector<cpp_ai_agent::storage::HistoryFile> resumableFiles;
+                    for (const auto& file : files) {
+                        std::error_code ec;
+                        if (std::filesystem::exists(logger.path(), ec) &&
+                            std::filesystem::exists(file.path, ec) &&
+                            std::filesystem::equivalent(file.path, logger.path(), ec)) {
+                            continue;
+                        }
+
+                        try {
+                            if (!loadMessagesFromHistory(file.path).empty()) {
+                                resumableFiles.push_back(file);
+                            }
+                        } catch (const std::exception&) {
+                            // Ignore malformed or unreadable logs in the interactive picker.
+                        }
+                    }
+
+                    if (resumableFiles.empty()) {
                         std::cout << "load> no logs found in " << appConfig.historyDir << "\n\n";
                         continue;
                     }
 
                     std::cout << "load> select a session to resume:\n\n";
-                    for (std::size_t i = 0; i < files.size(); ++i) {
+                    for (std::size_t i = 0; i < resumableFiles.size(); ++i) {
                         std::cout << "  [" << (i + 1) << "] "
-                                  << files[i].modifiedTime << "  "
-                                  << std::setw(7) << files[i].size << " bytes  ";
-                        if (!files[i].title.empty()) {
-                            std::cout << files[i].title;
+                                  << resumableFiles[i].modifiedTime << "  "
+                                  << std::setw(7) << resumableFiles[i].size << " bytes  ";
+                        if (!resumableFiles[i].title.empty()) {
+                            std::cout << resumableFiles[i].title;
                         } else {
                             std::cout << "(no title)";
                         }
@@ -1030,8 +1052,8 @@ int main(int argc, char* argv[]) {
                     // Try numeric index.
                     try {
                         const int index = std::stoi(selection);
-                        if (index >= 1 && static_cast<std::size_t>(index) <= files.size()) {
-                            loadPath = files[static_cast<std::size_t>(index) - 1].path;
+                        if (index >= 1 && static_cast<std::size_t>(index) <= resumableFiles.size()) {
+                            loadPath = resumableFiles[static_cast<std::size_t>(index) - 1].path;
                         }
                     } catch (const std::exception&) {
                         // Not a number — treat as a path.

@@ -7,12 +7,25 @@
 #include <cstring>
 #include <iomanip>
 #include <iostream>
+#ifdef _WIN32
+#include <process.h>
+#else
+#include <unistd.h>
+#endif
 #include <sstream>
 #include <stdexcept>
 
 namespace cpp_ai_agent::storage {
 
 namespace {
+
+int processId() {
+#ifdef _WIN32
+    return _getpid();
+#else
+    return getpid();
+#endif
+}
 
 std::string timestampForFileName() {
     const auto now = std::chrono::system_clock::now();
@@ -26,7 +39,12 @@ std::string timestampForFileName() {
 #endif
 
     std::ostringstream stream;
-    stream << std::put_time(&localTime, "%Y%m%d-%H%M%S");
+    const auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(
+                            now.time_since_epoch()
+                        ).count() % 1000;
+    stream << std::put_time(&localTime, "%Y%m%d-%H%M%S")
+           << "-" << std::setw(3) << std::setfill('0') << millis
+           << "-" << processId();
     return stream.str();
 }
 
