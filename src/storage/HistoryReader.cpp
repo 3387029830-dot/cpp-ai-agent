@@ -64,7 +64,10 @@ std::string formatEntry(const nlohmann::json& entry) {
 
 /// Extract the session title from a log filename.
 ///
-/// Expected format:  session-YYYYMMDD-HHMMSS[-title].jsonl
+/// Expected formats:
+///   session-YYYYMMDD-HHMMSS[-title].jsonl
+///   session-YYYYMMDD-HHMMSS-mmm[-title].jsonl
+///   session-YYYYMMDD-HHMMSS-mmm-pid[-title].jsonl
 /// Returns the title portion, or an empty string for old-format names
 /// that have only the timestamp.
 std::string parseTitleFromFilename(const std::string& filename) {
@@ -81,7 +84,8 @@ std::string parseTitleFromFilename(const std::string& filename) {
         return "";
     }
 
-    // After "session-YYYYMMDD-HHMMSS" there may be "-title".
+    // After "session-YYYYMMDD-HHMMSS" there may be "-title", "-mmm-title",
+    // or "-mmm-pid-title".
     // The timestamp part is exactly 15 characters (8 digits + 1 hyphen + 6 digits).
     const std::size_t tsLen = prefix.size() + 15;  // "session-" + "YYYYMMDD-HHMMSS"
     if (stem.size() <= tsLen) {
@@ -93,7 +97,39 @@ std::string parseTitleFromFilename(const std::string& filename) {
         return "";
     }
 
-    return stem.substr(tsLen + 1);
+    const auto isDigit = [](char ch) {
+        return ch >= '0' && ch <= '9';
+    };
+
+    std::size_t titleStart = tsLen + 1;
+    const bool hasMillis =
+        stem.size() >= titleStart + 3 &&
+        isDigit(stem[titleStart]) &&
+        isDigit(stem[titleStart + 1]) &&
+        isDigit(stem[titleStart + 2]) &&
+        (stem.size() == titleStart + 3 || stem[titleStart + 3] == '-');
+    if (hasMillis) {
+        titleStart += 3;
+        if (stem.size() == titleStart) {
+            return "";
+        }
+        ++titleStart;  // Skip '-' after milliseconds.
+
+        const auto pidStart = titleStart;
+        while (titleStart < stem.size() && isDigit(stem[titleStart])) {
+            ++titleStart;
+        }
+        if (titleStart > pidStart && (titleStart == stem.size() || stem[titleStart] == '-')) {
+            if (titleStart == stem.size()) {
+                return "";
+            }
+            ++titleStart;  // Skip '-' after process id.
+        } else {
+            titleStart = pidStart;
+        }
+    }
+
+    return stem.substr(titleStart);
 }
 
 }  // namespace
