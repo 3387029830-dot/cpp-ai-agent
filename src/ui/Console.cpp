@@ -204,39 +204,61 @@ void Console::printUser(const std::string& /*text*/) const {
 }
 
 void Console::printAssistant(const std::string& text) const {
-    std::cout << color(bold) << "▸ assistant" << color(reset) << "\n  ";
+    printAssistantHeader();
     if (!typewriter_) {
-        std::cout << text << "\n\n";
-        return;
-    }
+        std::cout << text;
+    } else {
+        // Pseudo-streaming typewriter loop: output the assistant reply in small
+        // chunks spaced by stepDelayMs_, respecting UTF-8 code-point boundaries
+        // so that multi-byte characters are never split mid-sequence.
+        std::size_t i = 0;
+        int printedChars = 0;
+        while (i < text.size()) {
+            // After maxTypewriterChars_ characters the effect has served its
+            // purpose — dump the remainder instantly to avoid dragging.
+            if (printedChars >= maxTypewriterChars_) {
+                std::cout << text.substr(i);
+                break;
+            }
 
-    // Pseudo-streaming typewriter loop: output the assistant reply in small
-    // chunks spaced by stepDelayMs_, respecting UTF-8 code-point boundaries
-    // so that multi-byte characters are never split mid-sequence.
-    std::size_t i = 0;
-    int printedChars = 0;
-    while (i < text.size()) {
-        // After maxTypewriterChars_ characters the effect has served its
-        // purpose — dump the remainder instantly to avoid dragging.
-        if (printedChars >= maxTypewriterChars_) {
-            std::cout << text.substr(i);
-            break;
+            // Advance by exactly charsPerStep_ complete UTF-8 code points.
+            int stepChars = 0;
+            const auto start = i;
+            while (i < text.size() && stepChars < charsPerStep_) {
+                const auto len = utf8CharLen(static_cast<unsigned char>(text[i]));
+                i += std::min<std::size_t>(len, text.size() - i);
+                ++stepChars;
+                ++printedChars;
+            }
+
+            std::cout << text.substr(start, i - start) << std::flush;
+            std::this_thread::sleep_for(std::chrono::milliseconds(stepDelayMs_));
         }
-
-        // Advance by exactly charsPerStep_ complete UTF-8 code points.
-        int stepChars = 0;
-        const auto start = i;
-        while (i < text.size() && stepChars < charsPerStep_) {
-            const auto len = utf8CharLen(static_cast<unsigned char>(text[i]));
-            i += std::min<std::size_t>(len, text.size() - i);
-            ++stepChars;
-            ++printedChars;
-        }
-
-        std::cout << text.substr(start, i - start) << std::flush;
-        std::this_thread::sleep_for(std::chrono::milliseconds(stepDelayMs_));
     }
+    printAssistantFooter();
+}
+
+void Console::printAssistantHeader() const {
+    std::cout << color(bold) << "▸ assistant" << color(reset) << "\n  ";
+}
+
+void Console::printAssistantChunk(const std::string& chunk) {
+    if (!streaming_) {
+        printAssistantHeader();
+        streaming_ = true;
+    }
+    std::cout << chunk << std::flush;
+}
+
+void Console::printAssistantFooter() const {
     std::cout << "\n\n";
+}
+
+void Console::finishAssistantStream() {
+    if (streaming_) {
+        printAssistantFooter();
+        streaming_ = false;
+    }
 }
 
 void Console::printToolCall(const std::string& name, const std::string& args, const std::string& risk) const {

@@ -15,8 +15,9 @@
 namespace cpp_ai_agent::agent {
 
 enum class AgentEventType {
-    AssistantMessage,
-    AssistantChunk,   // streaming text delta — detail carries one chunk
+    AssistantMessage,  // non-streaming: full response text in detail
+    AssistantChunk,    // streaming: one text delta in detail
+    AssistantDone,     // streaming: end of turn (no data needed)
     ToolCall,
     ToolResult,
     Warning,

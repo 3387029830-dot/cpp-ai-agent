@@ -75,11 +75,15 @@ core::Message AgentLoop::runTurn(core::Session& session) const {
         logger_.log("assistant_message", {{"content", assistant.content}});
 
         if (assistant.toolCalls.empty()) {
-            emit({
-                AgentEventType::AssistantMessage,
-                "assistant",
-                assistant.content,
-            });
+            if (enableStreaming_) {
+                emit({AgentEventType::AssistantDone, "", ""});
+            } else {
+                emit({
+                    AgentEventType::AssistantMessage,
+                    "assistant",
+                    assistant.content,
+                });
+            }
             return assistant;
         }
 

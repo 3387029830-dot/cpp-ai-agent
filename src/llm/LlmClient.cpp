@@ -188,47 +188,57 @@ core::Message LlmClient::chatStream(
                 return true;
             }
 
-            try {
-                const auto json = nlohmann::json::parse(event.data);
-                const auto& choices = json.at("choices");
-                if (choices.empty()) {
-                    return true;
+            // Guard each JSON access individually — a single malformed field
+            // should not discard the entire SSE event.
+            const auto json = nlohmann::json::parse(event.data, nullptr, false);
+            if (json.is_discarded() || !json.contains("choices")) {
+                return true;
+            }
+            const auto& choices = json["choices"];
+            if (!choices.is_array() || choices.empty()) {
+                return true;
+            }
+
+            const auto& delta = choices[0].value("delta", nlohmann::json::object());
+
+            // Text content chunk
+            if (delta.contains("content")) {
+                const auto& content = delta["content"];
+                if (content.is_string() && !content.get_ref<const std::string&>().empty()) {
+                    const auto& chunk = content.get_ref<const std::string&>();
+                    accumulatedContent += chunk;
+                    onChunk(chunk);
                 }
+            }
 
-                const auto& delta = choices[0].value("delta", nlohmann::json::object());
+            // Tool-call delta(s) — accumulate by index
+            if (delta.contains("tool_calls") && delta["tool_calls"].is_array()) {
+                for (const auto& tc : delta["tool_calls"]) {
+                    if (!tc.is_object()) {
+                        continue;
+                    }
+                    const int index = tc.value("index", 0);
+                    auto& frag = toolCallFragments[index];
 
-                // Text content chunk
-                if (delta.contains("content")) {
-                    const auto& content = delta["content"];
-                    if (content.is_string() && !content.get_ref<const std::string&>().empty()) {
-                        const auto& chunk = content.get_ref<const std::string&>();
-                        accumulatedContent += chunk;
-                        onChunk(chunk);
+                    if (tc.contains("id") && tc["id"].is_string()) {
+                        frag.id = tc["id"].get<std::string>();
+                    }
+                    if (tc.contains("function") && tc["function"].is_object()) {
+                        const auto& func = tc["function"];
+                        // Only accept a non-empty name — subsequent deltas
+                        // often carry name="" which would overwrite the
+                        // correct name from the first delta.
+                        if (func.contains("name") && func["name"].is_string()) {
+                            const auto& nameStr = func["name"].get_ref<const std::string&>();
+                            if (!nameStr.empty()) {
+                                frag.name = nameStr;
+                            }
+                        }
+                        if (func.contains("arguments") && func["arguments"].is_string()) {
+                            frag.arguments += func["arguments"].get<std::string>();
+                        }
                     }
                 }
-
-                // Tool-call delta(s) — accumulate by index
-                if (delta.contains("tool_calls")) {
-                    for (const auto& tc : delta["tool_calls"]) {
-                        const int index = tc.value("index", 0);
-                        auto& frag = toolCallFragments[index];
-
-                        if (tc.contains("id")) {
-                            frag.id = tc["id"].get<std::string>();
-                        }
-                        if (tc.contains("function")) {
-                            const auto& func = tc["function"];
-                            if (func.contains("name")) {
-                                frag.name = func["name"].get<std::string>();
-                            }
-                            if (func.contains("arguments")) {
-                                frag.arguments += func["arguments"].get<std::string>();
-                            }
-                        }
-                    }
-                }
-            } catch (const std::exception&) {
-                // Malformed SSE event — skip it.
             }
 
             return true;

@@ -11,6 +11,8 @@ public:
     void printBanner(const std::string& model, const std::string& workspace) const;
     void printUser(const std::string& text) const;
     void printAssistant(const std::string& text) const;
+    void printAssistantChunk(const std::string& chunk);  // auto-header on first call
+    void finishAssistantStream();                         // close streaming: footer + reset
     void printToolCall(const std::string& name, const std::string& args, const std::string& risk) const;
     void printToolResult(const std::string& name, const std::string& detail) const;
     void printPermissionPrompt(
@@ -32,9 +34,12 @@ public:
 private:
     std::string color(const std::string& code) const;
     void printIndented(const std::string& text) const;
+    void printAssistantHeader() const;
+    void printAssistantFooter() const;
 
     bool color_ = false;
     bool typewriter_ = false;
+    bool streaming_ = false;  // track streaming state for printAssistantChunk
     int charsPerStep_ = 3;
     int stepDelayMs_ = 12;
     int maxTypewriterChars_ = 1200;
