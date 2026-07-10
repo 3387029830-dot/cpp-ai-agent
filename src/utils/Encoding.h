@@ -1,0 +1,21 @@
+#pragma once
+
+#include <string>
+
+namespace cpp_ai_agent::utils {
+
+/// Returns true if `value` is valid UTF-8 (or empty).
+bool isValidUtf8(const std::string& value);
+
+/// Convert `value` from `sourceCodePage` to UTF-8.
+/// Returns the converted string, or the original if conversion fails.
+std::string toUtf8(const std::string& value, unsigned int sourceCodePage);
+
+/// Ensure `value` is valid UTF-8 by trying common encodings:
+///   1. Already valid UTF-8 → return as-is.
+///   2. Try the system ANSI code page (CP_ACP).
+///   3. Try GBK / CP 936.
+///   4. Fall back to the original string if all conversions fail.
+std::string ensureUtf8(const std::string& value);
+
+}  // namespace cpp_ai_agent::utils

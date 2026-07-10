@@ -45,6 +45,7 @@ add_executable(ai-agent
     src/tools/ToolRegistry.cpp
     src/tools/WebSearchTool.cpp
     src/ui/Console.cpp
+    src/utils/Encoding.cpp
     src/main.cpp
 )
 
@@ -86,6 +87,7 @@ add_executable(ai-agent-tests
     src/tools/ShellTool.cpp
     src/tools/ToolRegistry.cpp
     src/tools/WebSearchTool.cpp
+    src/utils/Encoding.cpp
     tests/config_tests.cpp
     tests/diagnostics_tests.cpp
     tests/agent_loop_tests.cpp
