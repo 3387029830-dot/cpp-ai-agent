@@ -15,7 +15,13 @@ std::string toUtf8(const std::string& value, unsigned int sourceCodePage);
 ///   1. Already valid UTF-8 → return as-is.
 ///   2. Try the system ANSI code page (CP_ACP).
 ///   3. Try GBK / CP 936.
-///   4. Fall back to the original string if all conversions fail.
+///   4. Try Big5 / CP 950.
+///   5. Final fallback: round-trip through WideChar to replace invalid
+///      sequences with U+FFFD (never returns non-UTF-8).
 std::string ensureUtf8(const std::string& value);
+
+/// Replace invalid UTF-8 byte sequences with U+FFFD (replacement character).
+/// Uses the OS wide-char round-trip to sanitize; always returns valid UTF-8.
+std::string sanitizeUtf8(const std::string& value);
 
 }  // namespace cpp_ai_agent::utils
