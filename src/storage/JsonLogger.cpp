@@ -1,4 +1,5 @@
 #include "storage/JsonLogger.h"
+#include "utils/Encoding.h"
 
 #include <nlohmann/json.hpp>
 
@@ -64,11 +65,35 @@ JsonLogger::JsonLogger(std::filesystem::path historyDir) {
     }
 }
 
+namespace {
+
+/// Recursively sanitize all string values in a JSON tree.
+/// nlohmann::json::dump() validates UTF-8 and throws type_error.316 on
+/// invalid sequences (e.g., run_command stdout containing GBK bytes).
+void sanitizeJsonStrings(nlohmann::json& j) {
+    if (j.is_string()) {
+        j = cpp_ai_agent::utils::ensureUtf8(j.get<std::string>());
+    } else if (j.is_object()) {
+        for (auto& [key, value] : j.items()) {
+            sanitizeJsonStrings(value);
+        }
+    } else if (j.is_array()) {
+        for (auto& item : j) {
+            sanitizeJsonStrings(item);
+        }
+    }
+}
+
+}  // namespace
+
 void JsonLogger::log(const std::string& type, const nlohmann::json& data) {
+    auto safeData = data;
+    sanitizeJsonStrings(safeData);
+
     nlohmann::json entry = {
         {"timestamp", timestampMillis()},
         {"type", type},
-        {"data", data},
+        {"data", safeData},
     };
     output_ << entry.dump() << '\n';
     output_.flush();

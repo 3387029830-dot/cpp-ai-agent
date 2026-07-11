@@ -2,6 +2,7 @@
 
 #include "core/Message.h"
 #include "llm/LlmParsing.h"
+#include "utils/Encoding.h"
 
 #include <cpr/cpr.h>
 #include <cpr/sse.h>
@@ -30,7 +31,7 @@ nlohmann::json toApiMessages(const std::vector<core::Message>& messages) {
     for (const auto& message : messages) {
         nlohmann::json apiMessage = {
             {"role", core::roleToApiString(message.role)},
-            {"content", message.content},
+            {"content", utils::ensureUtf8(message.content)},
         };
 
         if (!message.toolCalls.empty()) {
