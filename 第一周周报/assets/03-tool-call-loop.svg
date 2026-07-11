@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="860" viewBox="0 0 1600 860">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fbf7ef"/>
+      <stop offset="1" stop-color="#e8f1f2"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="16" stdDeviation="15" flood-color="#475569" flood-opacity="0.20"/>
+    </filter>
+    <style>
+      text { font-family: "Microsoft YaHei", "Segoe UI", sans-serif; }
+      .title { font-size: 50px; font-weight: 800; fill: #172033; }
+      .sub { font-size: 22px; fill: #64748b; }
+      .node { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; rx: 26; filter: url(#shadow); }
+      .strong { fill: #0f3d4c; stroke: #0e7490; stroke-width: 3; rx: 28; filter: url(#shadow); }
+      .label { font-size: 28px; font-weight: 800; fill: #172033; }
+      .labelLight { font-size: 28px; font-weight: 800; fill: #f8fafc; }
+      .body { font-size: 19px; fill: #64748b; }
+      .bodyLight { font-size: 19px; fill: #dbeafe; }
+      .arrow { stroke: #0f766e; stroke-width: 5; fill: none; marker-end: url(#arrow); }
+      .loop { stroke: #f59e0b; stroke-width: 5; fill: none; stroke-dasharray: 12 10; marker-end: url(#arrowWarm); }
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#0f766e"/>
+    </marker>
+    <marker id="arrowWarm" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#f59e0b"/>
+    </marker>
+  </defs>
+  <rect width="1600" height="860" fill="url(#bg)"/>
+  <text x="80" y="92" class="title">工具调用闭环</text>
+  <text x="82" y="132" class="sub">展示 AI Agent 与普通聊天机器人的根本区别：模型会请求工具，程序安全执行，再把真实结果回填。</text>
+
+  <rect x="90" y="310" width="220" height="140" class="node"/>
+  <text x="128" y="365" class="label">用户输入</text>
+  <text x="126" y="404" class="body">自然语言任务</text>
+
+  <rect x="390" y="280" width="260" height="200" class="strong"/>
+  <text x="438" y="352" class="labelLight">LLM 推理</text>
+  <text x="432" y="392" class="bodyLight">判断是否需要工具</text>
+  <text x="432" y="424" class="bodyLight">生成 tool_calls</text>
+
+  <rect x="740" y="300" width="260" height="160" class="node"/>
+  <text x="788" y="360" class="label">权限确认</text>
+  <text x="782" y="399" class="body">Safe / Write / Dangerous</text>
+
+  <rect x="1090" y="250" width="300" height="260" class="strong"/>
+  <text x="1140" y="320" class="labelLight">工具执行</text>
+  <text x="1130" y="362" class="bodyLight">read / write / edit</text>
+  <text x="1130" y="394" class="bodyLight">run_command</text>
+  <text x="1130" y="426" class="bodyLight">web_search / MCP</text>
+
+  <rect x="740" y="610" width="260" height="150" class="node"/>
+  <text x="784" y="668" class="label">结果回填</text>
+  <text x="785" y="707" class="body">tool message</text>
+
+  <rect x="390" y="610" width="260" height="150" class="node"/>
+  <text x="438" y="668" class="label">最终回答</text>
+  <text x="425" y="707" class="body">结合真实结果输出</text>
+
+  <path d="M310 380 L390 380" class="arrow"/>
+  <path d="M650 380 L740 380" class="arrow"/>
+  <path d="M1000 380 L1090 380" class="arrow"/>
+  <path d="M1240 510 C1190 620 1080 685 1000 685" class="arrow"/>
+  <path d="M740 685 L650 685" class="arrow"/>
+  <path d="M520 610 C460 545 455 510 500 480" class="loop"/>
+  <text x="440" y="545" class="body">如果还需下一步，继续循环</text>
+
+  <text x="90" y="805" class="sub">安全边界：模型只能“请求”工具，不能绕过权限直接操作本地文件或命令。</text>
+</svg>

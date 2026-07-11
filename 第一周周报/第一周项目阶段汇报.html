@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>cpp-ai-agent 第一周项目阶段汇报</title>
+  <style>
+    :root {
+      --ink: #142033;
+      --muted: #5f6f83;
+      --line: #d7e0ea;
+      --paper: #f7fafc;
+      --navy: #10243c;
+      --cyan: #0e7490;
+      --green: #0f766e;
+      --amber: #b45309;
+      --blue: #1d4ed8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        linear-gradient(145deg, rgba(14,116,144,.08), transparent 36%),
+        linear-gradient(35deg, rgba(180,83,9,.08), transparent 42%),
+        var(--paper);
+      font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+      line-height: 1.65;
+    }
+    header {
+      min-height: 520px;
+      padding: 72px 7vw 44px;
+      color: #f8fafc;
+      background:
+        radial-gradient(circle at 82% 18%, rgba(56,189,248,.25), transparent 28%),
+        radial-gradient(circle at 16% 80%, rgba(16,185,129,.18), transparent 30%),
+        linear-gradient(135deg, #0b1120, #123c56 58%, #0f3d4c);
+      position: relative;
+      overflow: hidden;
+    }
+    header:after {
+      content: "";
+      position: absolute;
+      inset: auto -12vw -18vw auto;
+      width: 54vw;
+      height: 54vw;
+      border: 1px solid rgba(226,232,240,.16);
+      border-radius: 50%;
+    }
+    .eyebrow {
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: #93c5fd;
+      font-weight: 700;
+      font-size: 14px;
+      margin-bottom: 28px;
+    }
+    h1 {
+      max-width: 980px;
+      margin: 0;
+      font-size: clamp(42px, 6vw, 86px);
+      line-height: 1.02;
+      letter-spacing: 0;
+    }
+    .lead {
+      max-width: 900px;
+      color: #cbd5e1;
+      margin: 28px 0 0;
+      font-size: 23px;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(150px, 1fr));
+      gap: 18px;
+      max-width: 1040px;
+      margin-top: 54px;
+    }
+    .stat {
+      border: 1px solid rgba(226,232,240,.18);
+      background: rgba(15,23,42,.45);
+      padding: 22px 24px;
+      min-height: 126px;
+    }
+    .stat strong {
+      display: block;
+      font-size: 36px;
+      line-height: 1;
+      margin-bottom: 12px;
+    }
+    .stat span { color: #cbd5e1; }
+    main { padding: 64px 7vw 90px; }
+    section {
+      max-width: 1180px;
+      margin: 0 auto 72px;
+    }
+    h2 {
+      font-size: 34px;
+      line-height: 1.15;
+      margin: 0 0 18px;
+    }
+    .section-note {
+      color: var(--muted);
+      font-size: 19px;
+      margin: 0 0 28px;
+    }
+    .visual {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: white;
+      box-shadow: 0 20px 50px rgba(15,23,42,.10);
+      margin: 24px 0 32px;
+      display: block;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+    .panel {
+      background: #fff;
+      border: 1px solid var(--line);
+      padding: 24px;
+      min-height: 180px;
+      box-shadow: 0 10px 26px rgba(15,23,42,.06);
+    }
+    .panel h3 {
+      margin: 0 0 12px;
+      font-size: 22px;
+    }
+    .panel p {
+      margin: 0;
+      color: var(--muted);
+    }
+    .timeline {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+    }
+    .day {
+      background: #fff;
+      border: 1px solid var(--line);
+      padding: 20px;
+    }
+    .day b {
+      display: block;
+      color: var(--cyan);
+      margin-bottom: 10px;
+    }
+    .quote {
+      background: var(--navy);
+      color: #e2e8f0;
+      padding: 34px;
+      font-size: 22px;
+      border-left: 8px solid #38bdf8;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border: 1px solid var(--line);
+    }
+    th, td {
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+      padding: 15px 16px;
+      vertical-align: top;
+    }
+    th {
+      background: #e8f1f5;
+      font-weight: 800;
+    }
+    footer {
+      padding: 36px 7vw 58px;
+      color: #cbd5e1;
+      background: #0b1120;
+    }
+    @media (max-width: 900px) {
+      .stats, .grid, .timeline { grid-template-columns: 1fr; }
+      header { padding-top: 52px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="eyebrow">cpp-ai-agent · Week 1 Project Review</div>
+    <h1>C++17 终端 AI 编程智能体阶段汇报</h1>
+    <p class="lead">第一周完成从工程骨架到 M0-M8 演示闭环的集中开发：模型接入、工具调用、安全确认、日志回放、Web 搜索、MCP、Skill 与跨环境稳定性。</p>
+    <div class="stats">
+      <div class="stat"><strong>M0-M8</strong><span>阶段能力闭环</span></div>
+      <div class="stat"><strong>36</strong><span>doctest 用例通过</span></div>
+      <div class="stat"><strong>10+</strong><span>演示命令入口</span></div>
+      <div class="stat"><strong>3</strong><span>本地 / GitHub / GitLab 同步</span></div>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <h2>一、本周进展总览</h2>
+      <p class="section-note">项目已经不只是基础聊天程序，而是形成了“用户输入 → 模型决策 → 工具调用 → 权限确认 → 结果回填 → 日志追踪”的 Agent 闭环。</p>
+      <img class="visual" src="assets/01-milestone-roadmap.svg" alt="第一周里程碑路线图">
+      <div class="grid">
+        <div class="panel"><h3>核心闭环</h3><p>M0-M5 完成 CMake 工程、LLM 接入、工具系统、AgentLoop、安全日志和演示入口。</p></div>
+        <div class="panel"><h3>扩展能力</h3><p>M6-M7 完成 Web 搜索、Skill 模式和 MCP stdio 最小客户端。</p></div>
+        <div class="panel"><h3>工程稳定</h3><p>M8 解决新电脑构建、中文参数、AGENTS.md 注入和双端同步问题。</p></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>二、系统架构</h2>
+      <p class="section-note">AgentLoop 是系统中枢，连接模型、工具、安全、日志、Skill、MCP 和项目规范。</p>
+      <img class="visual" src="assets/02-agent-architecture.svg" alt="Agent 系统结构图">
+    </section>
+
+    <section>
+      <h2>三、核心能力闭环</h2>
+      <p class="section-note">模型不直接操作本地系统，而是通过 tool_calls 请求工具，程序再受控执行。</p>
+      <img class="visual" src="assets/03-tool-call-loop.svg" alt="工具调用闭环">
+      <div class="quote">项目重点不是“模型会回答”，而是“模型能够在权限控制下调用本地工具，并把真实结果继续用于推理”。</div>
+    </section>
+
+    <section>
+      <h2>四、测试与验收</h2>
+      <p class="section-note">本周多次执行构建和测试，当前测试报告显示 36 个 doctest 用例全部通过。</p>
+      <img class="visual" src="assets/05-test-coverage.svg" alt="测试覆盖矩阵">
+      <table>
+        <thead><tr><th>验收项</th><th>命令或输入</th><th>演示价值</th></tr></thead>
+        <tbody>
+          <tr><td>配置诊断</td><td><code>ai-agent.exe /doctor</code></td><td>检查 API、模型、workspace 和 vcpkg</td></tr>
+          <tr><td>命令面板</td><td>主对话输入 <code>/</code></td><td>集中查看所有功能入口</td></tr>
+          <tr><td>工具调用</td><td>读取 README 并总结</td><td>验证 read_file 与结果回填</td></tr>
+          <tr><td>Web 搜索</td><td><code>/search "MCP 是什么"</code></td><td>验证中文参数和外部知识接入</td></tr>
+          <tr><td>MCP</td><td><code>/mcp-demo</code></td><td>验证 stdio 握手和工具发现</td></tr>
+          <tr><td>历史恢复</td><td><code>/load</code></td><td>验证会话续接和日志可追溯</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>五、阶段演示路线</h2>
+      <p class="section-note">从项目目标、核心闭环、扩展能力到工程稳定性，完整呈现第一周阶段成果。</p>
+      <img class="visual" src="assets/04-demo-flow.svg" alt="阶段演示路线">
+    </section>
+
+    <section>
+      <h2>六、团队协作与下周计划</h2>
+      <div class="timeline">
+        <div class="day"><b>樊浩</b>总体集成、GitHub/GitLab 同步、演示入口和文档覆盖。</div>
+        <div class="day"><b>魏宇鑫</b>LLM 接入、AgentLoop 主循环、tool_calls 解析和上下文管理。</div>
+        <div class="day"><b>康艺凡</b>工具系统、安全确认、路径越界防护、diff preview 和日志回放。</div>
+        <div class="day"><b>王博轩</b>Console UI、Skill、MCP 最小客户端、Web 搜索和扩展能力整理。</div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    cpp-ai-agent 第一周项目阶段汇报 · 2026-07-11
+  </footer>
+</body>
+</html>

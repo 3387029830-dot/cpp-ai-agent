@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="820" viewBox="0 0 1600 820">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#edf5f8"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="12" flood-color="#334155" flood-opacity="0.14"/>
+    </filter>
+    <style>
+      text { font-family: "Microsoft YaHei", "Segoe UI", sans-serif; }
+      .title { font-size: 50px; font-weight: 800; fill: #132238; }
+      .sub { font-size: 22px; fill: #64748b; }
+      .hub { fill: #0f766e; rx: 34; filter: url(#shadow); }
+      .box { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; rx: 20; filter: url(#shadow); }
+      .hubText { font-size: 42px; font-weight: 900; fill: #ffffff; }
+      .label { font-size: 24px; font-weight: 800; fill: #172033; }
+      .body { font-size: 18px; fill: #64748b; }
+      .line { stroke: #94a3b8; stroke-width: 3; }
+    </style>
+  </defs>
+  <rect width="1600" height="820" fill="url(#bg)"/>
+  <text x="80" y="92" class="title">测试覆盖矩阵</text>
+  <text x="82" y="132" class="sub">36 个 doctest 用例覆盖配置、LLM、AgentLoop、工具、安全、Skill、MCP 与历史日志</text>
+
+  <rect x="635" y="315" width="330" height="180" class="hub"/>
+  <text x="710" y="388" class="hubText">36 CASES</text>
+  <text x="700" y="438" fill="#d1fae5" font-size="24">100% tests passed</text>
+
+  <g>
+    <line x1="635" y1="350" x2="365" y2="240" class="line"/>
+    <rect x="100" y="170" width="270" height="120" class="box"/>
+    <text x="130" y="218" class="label">配置与诊断</text>
+    <text x="130" y="253" class="body">.env / doctor / config</text>
+  </g>
+  <g>
+    <line x1="635" y1="400" x2="365" y2="405" class="line"/>
+    <rect x="100" y="345" width="270" height="120" class="box"/>
+    <text x="130" y="393" class="label">LLM 与 Agent</text>
+    <text x="130" y="428" class="body">tool_calls / mock loop</text>
+  </g>
+  <g>
+    <line x1="635" y1="455" x2="365" y2="585" class="line"/>
+    <rect x="100" y="535" width="270" height="120" class="box"/>
+    <text x="130" y="583" class="label">工具与安全</text>
+    <text x="130" y="618" class="body">路径防护 / 权限确认</text>
+  </g>
+  <g>
+    <line x1="965" y1="350" x2="1235" y2="240" class="line"/>
+    <rect x="1230" y="170" width="270" height="120" class="box"/>
+    <text x="1260" y="218" class="label">Skill</text>
+    <text x="1260" y="253" class="body">白名单 / target prompt</text>
+  </g>
+  <g>
+    <line x1="965" y1="400" x2="1235" y2="405" class="line"/>
+    <rect x="1230" y="345" width="270" height="120" class="box"/>
+    <text x="1260" y="393" class="label">MCP</text>
+    <text x="1260" y="428" class="body">initialize / tools/call</text>
+  </g>
+  <g>
+    <line x1="965" y1="455" x2="1235" y2="585" class="line"/>
+    <rect x="1230" y="535" width="270" height="120" class="box"/>
+    <text x="1260" y="583" class="label">历史日志</text>
+    <text x="1260" y="618" class="body">history / replay / load</text>
+  </g>
+</svg>
