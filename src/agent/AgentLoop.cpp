@@ -23,18 +23,38 @@ std::string shortText(const std::string& value, std::size_t maxLength = 300) {
 /// model can still see the beginning and end of large file contents.
 /// The model receives the truncated version; the UI displays the full text
 /// via the un-truncated AgentEvent.
+///
+/// Both cut points are adjusted to valid UTF-8 character boundaries so the
+/// truncated string never splits a multi-byte sequence.
 std::string truncateToolResult(const std::string& content, std::size_t maxLen = 2000) {
     if (content.size() <= maxLen) {
         return content;
     }
 
-    const std::size_t headLen = 1500;
-    const std::size_t tailLen = 500;
-    const auto omitted = content.size() - headLen - tailLen;
+    auto utf8Boundary = [](const std::string& s, std::size_t pos) -> std::size_t {
+        // Walk backwards while we see UTF-8 continuation bytes (10xxxxxx).
+        // Stop when we hit a start byte (0xxxxxxx, 11xxxxxx) or the beginning.
+        while (pos > 0 && (static_cast<unsigned char>(s[pos]) & 0xC0) == 0x80) {
+            --pos;
+        }
+        return pos;
+    };
+
+    std::size_t headLen = utf8Boundary(content, 1500);
+
+    // Tail: if the tail start position falls in the middle of a multi-byte
+    // sequence, skip forward past the continuation bytes.
+    std::size_t tailStart = content.size() - 500;
+    while (tailStart < content.size() &&
+           (static_cast<unsigned char>(content[tailStart]) & 0xC0) == 0x80) {
+        ++tailStart;
+    }
+
+    const auto omitted = content.size() - headLen - (content.size() - tailStart);
 
     return content.substr(0, headLen) +
            "\n\n... [省略 " + std::to_string(omitted) + " 字符] ...\n\n" +
-           content.substr(content.size() - tailLen);
+           content.substr(tailStart);
 }
 
 }  // namespace

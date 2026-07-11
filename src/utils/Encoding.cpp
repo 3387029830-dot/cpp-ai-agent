@@ -113,8 +113,72 @@ std::string ensureUtf8(const std::string& value) {
     }
 #endif
 
-    // All conversions failed; return original to avoid data loss.
+    // All conversions failed.  Final fallback: round-trip through the wide-char
+    // API without MB_ERR_INVALID_CHARS — this replaces every invalid UTF-8
+    // sequence with U+FFFD, ensuring the result is always valid UTF-8.
+    return sanitizeUtf8(value);
+}
+
+std::string sanitizeUtf8(const std::string& value) {
+    if (value.empty()) {
+        return value;
+    }
+
+#ifdef _WIN32
+    // MultiByteToWideChar without MB_ERR_INVALID_CHARS replaces invalid
+    // UTF-8 sequences with the default replacement character (U+FFFD).
+    const auto wideLength = MultiByteToWideChar(
+        CP_UTF8,
+        0,  // no MB_ERR_INVALID_CHARS → replace invalid sequences
+        value.data(),
+        static_cast<int>(value.size()),
+        nullptr,
+        0
+    );
+    if (wideLength <= 0) {
+        return value;  // should not happen, but be defensive
+    }
+
+    std::wstring wide(static_cast<std::size_t>(wideLength), L'\0');
+    MultiByteToWideChar(
+        CP_UTF8,
+        0,
+        value.data(),
+        static_cast<int>(value.size()),
+        wide.data(),
+        wideLength
+    );
+
+    // Convert back to UTF-8.
+    const auto utf8Length = WideCharToMultiByte(
+        CP_UTF8,
+        0,
+        wide.data(),
+        wideLength,
+        nullptr,
+        0,
+        nullptr,
+        nullptr
+    );
+    if (utf8Length <= 0) {
+        return value;
+    }
+
+    std::string utf8(static_cast<std::size_t>(utf8Length), '\0');
+    WideCharToMultiByte(
+        CP_UTF8,
+        0,
+        wide.data(),
+        wideLength,
+        utf8.data(),
+        utf8Length,
+        nullptr,
+        nullptr
+    );
+    return utf8;
+#else
     return value;
+#endif
 }
 
 }  // namespace cpp_ai_agent::utils
