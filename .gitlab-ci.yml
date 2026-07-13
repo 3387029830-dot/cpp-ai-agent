@@ -1,0 +1,79 @@
+# ──────────────────────────────────────────────────
+# cpp-ai-agent  GitLab CI/CD Pipeline
+# ──────────────────────────────────────────────────
+# Trigger: 每次 git push / merge request 自动运行
+# Runner:  需要 Windows runner（MSVC + CMake + vcpkg）
+
+stages:
+  - build
+  - test
+
+# ──────────────────────────────────────────────────
+# 全局变量
+# ──────────────────────────────────────────────────
+variables:
+  # vcpkg 缓存目录
+  VCPKG_DEFAULT_BINARY_CACHE: $CI_PROJECT_DIR/.vcpkg-cache
+  # CMake preset
+  CMAKE_PRESET: msvc-vcpkg-debug
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH
+
+# ──────────────────────────────────────────────────
+# 1. 构建阶段
+# ──────────────────────────────────────────────────
+build:
+  stage: build
+  tags:
+    - windows          # 需要 Windows runner（装有 VS 2026 + vcpkg）
+  before_script:
+    # 恢复 vcpkg 缓存（跳过重复下载）
+    - echo "Restoring vcpkg packages..."
+    - if (Test-Path "vcpkg_installed") { Write-Host "vcpkg packages already installed" }
+  script:
+    - echo "=== Configuring CMake ==="
+    - cmake --preset $env:CMAKE_PRESET
+    - echo "=== Building ==="
+    - cmake --build --preset $env:CMAKE_PRESET
+  artifacts:
+    name: "ai-agent-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - build/msvc-vcpkg-debug/ai-agent.exe
+      - build/msvc-vcpkg-debug/*.dll
+    expire_in: 7 days
+
+# ──────────────────────────────────────────────────
+# 2. 测试阶段
+# ──────────────────────────────────────────────────
+test:
+  stage: test
+  tags:
+    - windows
+  needs:
+    - build            # 等构建完成后再跑
+  script:
+    - echo "=== Running Tests ==="
+    - Set-Location build/msvc-vcpkg-debug
+    - ctest -C Debug --output-on-failure --output-junit test-report.xml
+  artifacts:
+    reports:
+      junit: build/msvc-vcpkg-debug/test-report.xml   # GitLab 自动可视化
+    when: always       # 即使测试失败也保留报告
+    expire_in: 30 days
+
+# ──────────────────────────────────────────────────
+# 3. 可选：MSBuild 直接构建（无需 CMake preset）
+# ──────────────────────────────────────────────────
+# 如果 CMake preset 不可用，可以直接调 MSBuild：
+#
+# build-msbuild:
+#   stage: build
+#   tags:
+#     - windows
+#   script:
+#     - cmake -S . -B build -G "Visual Studio 18 2026" -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake"
+#     - cmake --build build --config Debug
