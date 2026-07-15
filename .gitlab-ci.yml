@@ -1,0 +1,90 @@
+# ──────────────────────────────────────────────────
+# cpp-ai-agent  GitLab CI/CD Pipeline
+# ──────────────────────────────────────────────────
+# Runner 工作目录: C:\GitLab-Runner
+# artifacts 路径必须相对工作目录
+# Runner 重新注册后需更新路径中的短 token
+
+stages:
+  - build
+  - test
+  - deploy
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+build:
+  stage: build
+  tags:
+    - windows
+  before_script:
+    - cd C:\ci-builds\oAGzz63rx\0\2025-2026-3-devops\2025-se-37-ai\cpp-ai-agent
+    - Write-Host "Restoring vcpkg packages..."
+    - if (Test-Path "vcpkg_installed") { Write-Host "vcpkg packages already installed" }
+  script:
+    - cd C:\ci-builds\oAGzz63rx\0\2025-2026-3-devops\2025-se-37-ai\cpp-ai-agent
+    - Write-Host "=== Configuring CMake ==="
+    - cmake --preset msvc-vcpkg-debug
+    - cd C:\ci-builds\oAGzz63rx\0\2025-2026-3-devops\2025-se-37-ai\cpp-ai-agent
+    - Write-Host "=== Building ==="
+    - cmake --build --preset msvc-vcpkg-debug
+    - Write-Host "=== Copying test artifacts ==="
+    - if (Test-Path C:\GitLab-Runner\build-output) { Remove-Item -Recurse -Force C:\GitLab-Runner\build-output }
+    - New-Item -ItemType Directory -Force -Path C:\GitLab-Runner\build-output\msvc-vcpkg-debug
+    - Copy-Item -Force C:\ci-builds\oAGzz63rx\0\2025-2026-3-devops\2025-se-37-ai\cpp-ai-agent\build\msvc-vcpkg-debug\ai-agent-tests.exe C:\GitLab-Runner\build-output\msvc-vcpkg-debug\
+    - Copy-Item -Force C:\ci-builds\oAGzz63rx\0\2025-2026-3-devops\2025-se-37-ai\cpp-ai-agent\build\msvc-vcpkg-debug\*.dll C:\GitLab-Runner\build-output\msvc-vcpkg-debug\
+    - Set-Content -Path C:\GitLab-Runner\build-output\msvc-vcpkg-debug\CTestTestfile.cmake -Value "add_test(ai-agent-tests ai-agent-tests.exe)"
+    - Write-Host "=== Copying release artifacts ==="
+    - if (Test-Path C:\GitLab-Runner\release) { Remove-Item -Recurse -Force C:\GitLab-Runner\release }
+    - New-Item -ItemType Directory -Force -Path C:\GitLab-Runner\release
+    - Copy-Item -Force C:\ci-builds\oAGzz63rx\0\2025-2026-3-devops\2025-se-37-ai\cpp-ai-agent\build\msvc-vcpkg-debug\ai-agent.exe C:\GitLab-Runner\release\
+    - Copy-Item -Force C:\ci-builds\oAGzz63rx\0\2025-2026-3-devops\2025-se-37-ai\cpp-ai-agent\build\msvc-vcpkg-debug\*.dll C:\GitLab-Runner\release\
+    - Copy-Item -Recurse -Force C:\ci-builds\oAGzz63rx\0\2025-2026-3-devops\2025-se-37-ai\cpp-ai-agent\config C:\GitLab-Runner\release\
+    - Copy-Item -Force C:\ci-builds\oAGzz63rx\0\2025-2026-3-devops\2025-se-37-ai\cpp-ai-agent\.env.example C:\GitLab-Runner\release\
+    - Copy-Item -Force C:\ci-builds\oAGzz63rx\0\2025-2026-3-devops\2025-se-37-ai\cpp-ai-agent\README.md C:\GitLab-Runner\release\
+  artifacts:
+    name: ai-agent-${CI_COMMIT_SHORT_SHA}
+    paths:
+      - build-output/
+      - release/
+    expire_in: 7 days
+
+test:
+  stage: test
+  tags:
+    - windows
+  dependencies:
+    - build
+  needs:
+    - build
+  script:
+    - Write-Host "=== Running Tests ==="
+    - cd C:\GitLab-Runner\build-output\msvc-vcpkg-debug
+    - ctest -C Debug --output-on-failure
+  artifacts:
+    when: always
+    expire_in: 30 days
+
+deploy:
+  stage: deploy
+  tags:
+    - windows
+  needs:
+    - build
+    - test
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  script:
+    - Write-Host "=== Packaging release ==="
+    - Compress-Archive -Path (Get-ChildItem C:\GitLab-Runner\release\*) -DestinationPath C:\GitLab-Runner\release\ai-agent.zip -Force
+    - Write-Host "=== Creating Release ==="
+    - $tag = 'v' + (Get-Date -Format 'yyyyMMdd-HHmmss')
+    - cd C:\ci-builds\oAGzz63rx\0\2025-2026-3-devops\2025-se-37-ai\cpp-ai-agent
+    - $ref = git rev-parse HEAD
+    - release-cli --server-url http://csgitlab.whu.edu.cn --project-id 889 --private-token $env:GITLAB_RELEASE_TOKEN create --tag-name $tag --ref $ref --description 'Build auto'
+  artifacts:
+    paths:
+      - release/ai-agent.zip
+    expire_in: 30 days
