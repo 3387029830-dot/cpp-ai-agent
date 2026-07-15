@@ -32,6 +32,10 @@ std::string jsonResponse(const std::string& body, const std::string& status = "2
     return out.str();
 }
 
+std::string dumpJson(const nlohmann::json& value) {
+    return value.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
+}
+
 std::string htmlResponse(const std::string& body, const std::string& contentType = "text/html; charset=utf-8") {
     std::ostringstream out;
     out << "HTTP/1.1 200 OK\r\n"
@@ -48,7 +52,7 @@ std::string notFoundResponse() {
 }
 
 std::string badRequestResponse(const std::string& message) {
-    return jsonResponse(nlohmann::json({{"error", message}}).dump(), "400 Bad Request");
+    return jsonResponse(dumpJson({{"error", message}}), "400 Bad Request");
 }
 
 std::string busyResponse() {
@@ -247,15 +251,15 @@ std::string WebServer::eventsAfter(int lastId) const {
             });
         }
     }
-    return nlohmann::json({{"events", items}, {"busy", busy}}).dump();
+    return dumpJson({{"events", items}, {"busy", busy}});
 }
 
 std::string WebServer::statusJson() const {
-    return nlohmann::json({
+    return dumpJson({
         {"name", "cpp-ai-agent"},
         {"mode", "web"},
         {"busy", isBusy()},
-    }).dump();
+    });
 }
 
 void WebServer::handleClient(std::uintptr_t clientSocket) {
