@@ -9,7 +9,7 @@
 
 当前版本：v0.1.0。项目已完成 M0-M8 演示版闭环：M0-M5 覆盖 CMake + vcpkg 构建、OpenAI 兼容 API 对话、工具调用、权限确认、JSONL 日志、历史回放、配置诊断、ANSI 增强流式控制台界面和答辩材料；M6-M8 继续补充 Web 搜索、最小 MCP 客户端和跨环境工程化稳定性。
 
-在 v0.1.0 交付版之后，项目增强了 AgentLoop 的可测试性、终端呈现、搜索体验、MCP 集成和 Windows 构建稳定性：新增 `ContextManager` 上下文窗口、可注入的 `ILlmClient` 接口、独立 `tool_calls` 解析测试、Agent 主循环 mock LLM 自动化测试、`src/ui/Console.*` 流式控制台呈现模块、Bing RSS 优先的 Web 搜索、可由模型自动调用的内置 MCP 工具、项目级 `AGENTS.md` 规范注入、Visual Studio generator 默认构建和 Windows 中文命令行参数修复。
+在 v0.1.0 交付版之后，项目增强了 AgentLoop 的可测试性、终端呈现、搜索体验、MCP 集成、Windows 构建稳定性和代码质量评估：新增 `ContextManager` 上下文窗口、可注入的 `ILlmClient` 接口、独立 `tool_calls` 解析测试、Agent 主循环 mock LLM 自动化测试、`src/ui/Console.*` 流式控制台呈现模块、Bing RSS 优先的 Web 搜索、可由模型自动调用的内置 MCP 工具、项目级 `AGENTS.md` 规范注入、Visual Studio generator 默认构建、Windows 中文命令行参数修复和 SonarQube 静态扫描入口。
 
 ## 快速开始
 
@@ -210,6 +210,16 @@ cd ..\..
 .\build\msvc-vcpkg-debug\ai-agent.exe /mcp-connect <command> [args...]
 ```
 
+可选代码质量评估：
+
+```powershell
+sonar-scanner `
+  -Dsonar.host.url=http://localhost:9000 `
+  -Dsonar.token=你的SonarQubeToken
+```
+
+GitLab CI 中也提供了 `sonarqube` 质量评估 job。配置 `SONAR_HOST_URL` 和 `SONAR_TOKEN` 后自动启用；未配置时跳过，不影响普通构建和测试。
+
 `/search` 使用独立的 Web 搜索代理配置，默认不走代理。搜索会优先尝试 Bing RSS，再尝试 DuckDuckGo Instant Answer；如果两个入口都不可用，会降级输出可手动打开的搜索链接。如果你的网络需要代理，可以改 `config/settings.json` 中的 `web_search.proxy_url`，或在当前 PowerShell 里覆盖：
 
 ```powershell
@@ -358,6 +368,7 @@ cpp-ai-agent/
 - [项目总结](docs/07-项目总结.md)
 - [版本日志](docs/08-版本日志.md)
 - [项目思维导图](docs/09-项目思维导图.md)
+- [SonarQube 代码质量评估](docs/15-SonarQube代码质量评估.md)
 
 ## 里程碑
 
@@ -373,6 +384,7 @@ cpp-ai-agent/
 | M6 | 增加 Web 搜索工具和 `/search <query>`，国内网络优先使用 Bing RSS，并提供 DuckDuckGo/Bing 兜底链接 |
 | M7 | 实现最小 MCP stdio 客户端、内置 MCP 测试 server、MCP 工具调用和外部 server 工具发现 |
 | M8 | 完成工程化稳定性优化：`AGENTS.md` 项目级规范注入、Visual Studio generator 默认构建、NMake 备用 preset、固定 exe 输出目录、Windows 中文命令行参数修复和 GitHub/GitLab 同步流程 |
+| M9 | 增加 SonarQube 代码质量评估入口：`sonar-project.properties`、GitLab CI `quality` 阶段和配置文档 |
 
 ## 说明
 

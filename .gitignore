@@ -30,6 +30,10 @@ logs/
 *.log
 Testing/
 
+# Static analysis
+.scannerwork/
+sonar-report/
+
 # OS
 Thumbs.db
 Desktop.ini
