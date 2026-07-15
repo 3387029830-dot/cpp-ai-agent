@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>cpp-ai-agent Web Console</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">cpp-ai-agent</div>
+        <h1>AI Coding Workspace</h1>
+      </div>
+      <div class="status-pill"><span id="status-dot"></span><span id="status-text">connecting</span></div>
+    </header>
+
+    <section class="workspace">
+      <section class="conversation panel">
+        <div class="panel-head">
+          <div>
+            <span class="panel-kicker">Conversation</span>
+            <h2>对话流</h2>
+          </div>
+          <button class="ghost" id="clear-btn">清空视图</button>
+        </div>
+        <div id="chat" class="chat"></div>
+      </section>
+
+      <aside class="tools panel">
+        <div class="panel-head compact">
+          <div>
+            <span class="panel-kicker">Tools</span>
+            <h2>工具轨迹</h2>
+          </div>
+        </div>
+        <div id="tools" class="tool-list"></div>
+      </aside>
+
+      <aside class="status panel">
+        <div class="panel-head compact">
+          <div>
+            <span class="panel-kicker">Status</span>
+            <h2>运行状态</h2>
+          </div>
+        </div>
+        <div class="metric-grid">
+          <div><b id="event-count">0</b><span>events</span></div>
+          <div><b id="tool-count">0</b><span>tools</span></div>
+          <div><b id="mode">web</b><span>mode</span></div>
+          <div><b id="busy">idle</b><span>agent</span></div>
+        </div>
+        <div class="runtime">
+          <div><span>Loop</span><b>AgentLoop</b></div>
+          <div><span>Policy</span><b>PermissionManager</b></div>
+          <div><span>Trace</span><b>JSONL</b></div>
+        </div>
+      </aside>
+
+      <section class="input panel">
+        <textarea id="input" rows="3" placeholder="请读取 README.md，并用三点总结这个项目。"></textarea>
+        <div class="input-actions">
+          <button id="send">发送</button>
+          <span id="send-hint">ready</span>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <div class="permission" id="permission">
+    <div class="permission-box">
+      <span class="panel-kicker">Permission</span>
+      <h3>需要确认工具执行</h3>
+      <p id="perm-title"></p>
+      <pre id="perm-preview"></pre>
+      <div class="permission-actions">
+        <button id="deny" class="danger">拒绝</button>
+        <button id="approve">允许执行</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

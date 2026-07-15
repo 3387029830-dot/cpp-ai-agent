@@ -46,6 +46,7 @@ add_executable(ai-agent
     src/tools/WebSearchTool.cpp
     src/ui/Console.cpp
     src/utils/Encoding.cpp
+    src/web/WebServer.cpp
     src/main.cpp
 )
 
@@ -60,6 +61,10 @@ target_link_libraries(ai-agent PRIVATE
     ftxui::screen
     nlohmann_json::nlohmann_json
 )
+
+if(WIN32)
+    target_link_libraries(ai-agent PRIVATE ws2_32)
+endif()
 
 if(MSVC)
     target_compile_options(ai-agent PRIVATE /W4 /permissive- /utf-8)

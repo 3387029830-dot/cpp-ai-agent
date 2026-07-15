@@ -9,7 +9,7 @@
 
 当前版本：v0.1.0。项目已完成 M0-M8 演示版闭环：M0-M5 覆盖 CMake + vcpkg 构建、OpenAI 兼容 API 对话、工具调用、权限确认、JSONL 日志、历史回放、配置诊断、ANSI 增强流式控制台界面和答辩材料；M6-M8 继续补充 Web 搜索、最小 MCP 客户端和跨环境工程化稳定性。
 
-在 v0.1.0 交付版之后，项目增强了 AgentLoop 的可测试性、终端呈现、搜索体验、MCP 集成、Windows 构建稳定性和代码质量评估：新增 `ContextManager` 上下文窗口、可注入的 `ILlmClient` 接口、独立 `tool_calls` 解析测试、Agent 主循环 mock LLM 自动化测试、`src/ui/Console.*` 流式控制台呈现模块、Bing RSS 优先的 Web 搜索、可由模型自动调用的内置 MCP 工具、项目级 `AGENTS.md` 规范注入、Visual Studio generator 默认构建、Windows 中文命令行参数修复和 SonarQube 静态扫描入口。
+在 v0.1.0 交付版之后，项目增强了 AgentLoop 的可测试性、终端呈现、搜索体验、MCP 集成、Windows 构建稳定性、代码质量评估和双界面演示能力：新增 `ContextManager` 上下文窗口、可注入的 `ILlmClient` 接口、独立 `tool_calls` 解析测试、Agent 主循环 mock LLM 自动化测试、`src/ui/Console.*` 流式控制台呈现模块、浏览器 Web Console、Bing RSS 优先的 Web 搜索、可由模型自动调用的内置 MCP 工具、项目级 `AGENTS.md` 规范注入、Visual Studio generator 默认构建、Windows 中文命令行参数修复和 SonarQube 静态扫描入口。
 
 ## 快速开始
 
@@ -130,6 +130,27 @@ cmake --build --preset msvc-vcpkg-debug
 .\build\msvc-vcpkg-debug\ai-agent.exe
 ```
 
+默认启动的是终端 TUI/流式控制台。也可以从项目根目录启动浏览器 Web Console：
+
+```powershell
+.\build\msvc-vcpkg-debug\ai-agent.exe /web
+```
+
+启动后打开：
+
+```text
+http://127.0.0.1:8080
+```
+
+如需指定端口：
+
+```powershell
+.\build\msvc-vcpkg-debug\ai-agent.exe /web 8090
+.\build\msvc-vcpkg-debug\ai-agent.exe --ui web 8090
+```
+
+Web Console 使用同一套 `AgentLoop`、工具系统、权限管理和 JSONL 日志，只是把 Conversation / Tools / Status / Input 四个区域放到浏览器里展示。TUI 仍然保留，适合命令行答辩；Web 模式适合投屏演示完整任务流。
+
 也可以不创建 `.env`，改用系统环境变量：
 
 ```powershell
@@ -178,6 +199,7 @@ cd ..\..
 
 ```powershell
 .\build\msvc-vcpkg-debug\ai-agent.exe /ui
+.\build\msvc-vcpkg-debug\ai-agent.exe /web
 .\build\msvc-vcpkg-debug\ai-agent.exe /skills
 .\build\msvc-vcpkg-debug\ai-agent.exe /search cpp-ai-agent MCP stdio
 .\build\msvc-vcpkg-debug\ai-agent.exe /mcp-demo

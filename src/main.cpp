@@ -16,6 +16,7 @@
 #include "tools/WebSearchTool.h"
 #include "ui/Console.h"
 #include "utils/Encoding.h"
+#include "web/WebServer.h"
 
 #include <algorithm>
 #include <cctype>
@@ -26,6 +27,7 @@
 #include <iostream>
 #include <sstream>
 #include <memory>
+#include <mutex>
 #include <nlohmann/json.hpp>
 #include <string>
 #include <utility>
@@ -270,6 +272,8 @@ void printCommandPalette() {
     std::cout << "  ai-agent.exe /doctor\n";
     std::cout << "  ai-agent.exe /demo\n";
     std::cout << "  ai-agent.exe /ui\n";
+    std::cout << "  ai-agent.exe /web [port]\n";
+    std::cout << "  ai-agent.exe --ui web [port]\n";
     std::cout << "  ai-agent.exe /search <query>\n";
     std::cout << "  ai-agent.exe /skills\n";
     std::cout << "  ai-agent.exe /use-skill\n";
@@ -545,6 +549,7 @@ int main(int argc, char* argv[]) {
     using cpp_ai_agent::ui::Console;
     using cpp_ai_agent::ui::detectColorSupport;
     using cpp_ai_agent::ui::detectInteractiveOutput;
+    using cpp_ai_agent::web::WebServer;
 
     const auto consoleEncoding = configureConsoleEncoding();
     Console console(detectColorSupport(), detectInteractiveOutput());
@@ -559,9 +564,20 @@ int main(int argc, char* argv[]) {
         // and the messages are injected into the session below.
         std::vector<cpp_ai_agent::core::Message> preloadedMessages;
         std::string preloadedSource;
+        bool webMode = false;
+        int webPort = 8080;
 
         if (argCount >= 2) {
             const std::string command = args.at(1);
+            if (command == "/web" || command == "--web" || (command == "--ui" && argCount >= 3 && args.at(2) == "web")) {
+                webMode = true;
+                if ((command == "/web" || command == "--web") && argCount >= 3) {
+                    webPort = std::stoi(args.at(2));
+                } else if (command == "--ui" && argCount >= 4) {
+                    webPort = std::stoi(args.at(3));
+                }
+            }
+
             if (command == "/" || command == "/?" || command == "/help" || command == "/commands") {
                 printCommandPalette();
                 return 0;
@@ -736,9 +752,22 @@ int main(int argc, char* argv[]) {
         registerBuiltInMcpTools(tools, args.at(0));
         registerConfiguredMcpTools(tools, "config/mcp_servers.json");
 
+        std::unique_ptr<WebServer> webServer;
+        if (webMode) {
+            webServer = std::make_unique<WebServer>("web");
+        }
+
         PermissionManager permissions(
             appConfig.permissionMode,
-            [&console](const PermissionRequest& request) {
+            [&console, &webServer](const PermissionRequest& request) {
+                if (webServer) {
+                    return webServer->requestPermission(
+                        request.toolName,
+                        cpp_ai_agent::security::riskLevelToString(request.risk),
+                        request.arguments,
+                        request.preview
+                    );
+                }
                 return console.confirmPermission(
                     request.toolName,
                     cpp_ai_agent::security::riskLevelToString(request.risk),
@@ -748,8 +777,10 @@ int main(int argc, char* argv[]) {
             }
         );
         JsonLogger logger(std::filesystem::path(appConfig.historyDir));
-        console.printBanner(appConfig.llm.model, appConfig.workspaceRoot);
-        std::cout << "log> " << logger.path().string() << "\n\n";
+        if (!webMode) {
+            console.printBanner(appConfig.llm.model, appConfig.workspaceRoot);
+            std::cout << "log> " << logger.path().string() << "\n\n";
+        }
 
         std::string activeSkillName;
         std::string activeSkillTarget;
@@ -761,8 +792,33 @@ int main(int argc, char* argv[]) {
             permissions,
             logger,
             appConfig.maxIterations,
-            [&console, &tools](const cpp_ai_agent::agent::AgentEvent& event) {
+            [&console, &tools, &webServer](const cpp_ai_agent::agent::AgentEvent& event) {
                 using cpp_ai_agent::agent::AgentEventType;
+
+                if (webServer) {
+                    if (event.type == AgentEventType::AssistantChunk) {
+                        webServer->pushEvent("assistant_chunk", "assistant", event.detail);
+                    } else if (event.type == AgentEventType::AssistantDone) {
+                        webServer->pushEvent("assistant_done", "assistant", "");
+                    } else if (event.type == AgentEventType::AssistantMessage) {
+                        webServer->pushEvent("assistant_message", "assistant", event.detail);
+                    } else if (event.type == AgentEventType::ToolCall) {
+                        const auto* tool = tools.find(event.title);
+                        const auto risk =
+                            tool == nullptr ? "unknown" : cpp_ai_agent::security::riskLevelToString(tool->risk());
+                        webServer->pushEvent(
+                            "tool_call",
+                            event.title,
+                            event.detail,
+                            {{"risk", risk}}
+                        );
+                    } else if (event.type == AgentEventType::ToolResult) {
+                        webServer->pushEvent("tool_result", event.title, event.detail);
+                    } else if (event.type == AgentEventType::Warning) {
+                        webServer->pushEvent("warning", event.title, event.detail);
+                    }
+                    return;
+                }
 
                 if (event.type == AgentEventType::AssistantChunk) {
                     console.printAssistantChunk(event.detail);
@@ -888,6 +944,38 @@ int main(int argc, char* argv[]) {
             for (const auto& msg : preloadedMessages) {
                 session.addMessage(msg);
             }
+        }
+
+        if (webMode && webServer) {
+            std::mutex sessionMutex;
+            bool firstWebUserMessage = preloadedMessages.empty();
+            webServer->setChatHandler(
+                [&session, &sessionMutex, &logger, &agentLoop, &firstWebUserMessage](const std::string& content) {
+                    std::lock_guard<std::mutex> lock(sessionMutex);
+                    if (firstWebUserMessage) {
+                        firstWebUserMessage = false;
+                        std::string title = content;
+                        const auto newlinePos = title.find('\n');
+                        if (newlinePos != std::string::npos) {
+                            title = title.substr(0, newlinePos);
+                        }
+                        if (title.size() > 60) {
+                            title = title.substr(0, 60);
+                        }
+                        logger.rename(title);
+                    }
+
+                    session.addMessage(makeMessage(cpp_ai_agent::core::Role::User, content));
+                    logger.log("user_message", {{"content", content}});
+                    agentLoop.runTurn(session);
+                }
+            );
+
+            webServer->pushEvent("assistant_message", "system", "Web Console 已启动，正在使用同一套 AgentLoop 和工具系统。");
+            std::cout << "cpp-ai-agent web mode\n";
+            std::cout << "url> http://127.0.0.1:" << webPort << "\n";
+            std::cout << "log> " << logger.path().string() << "\n\n";
+            return webServer->start(webPort);
         }
 
         bool firstUserMessage = preloadedMessages.empty();
