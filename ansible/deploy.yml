@@ -1,0 +1,122 @@
+# =============================================================================
+# cpp-ai-agent Ansible Deploy Playbook
+# =============================================================================
+# 用法:
+#   ansible-playbook -i inventory.ini deploy.yml
+#   ansible-playbook -i inventory.ini deploy.yml -e "target=production version=v0.1.0"
+# =============================================================================
+
+- name: Deploy cpp-ai-agent
+  hosts: "{{ target | default('staging') }}"
+  become: yes
+  vars:
+    app_name: cpp-ai-agent
+    app_user: "{{ app_name }}"
+    app_group: "{{ app_name }}"
+    install_dir: "/opt/{{ app_name }}"
+    data_dir: "/var/lib/{{ app_name }}"
+    log_dir: "/var/log/{{ app_name }}"
+    config_dir: "/etc/{{ app_name }}"
+    version: "{{ version | default('latest') }}"
+    artifact_path: "{{ artifact_path | default('') }}"
+
+  tasks:
+    - name: Create application system user
+      ansible.builtin.user:
+        name: "{{ app_user }}"
+        group: "{{ app_group }}"
+        system: yes
+        shell: /usr/sbin/nologin
+        create_home: no
+        state: present
+
+    - name: Create application directory structure
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: "0755"
+      loop:
+        - "{{ install_dir }}"
+        - "{{ install_dir }}/bin"
+        - "{{ install_dir }}/config"
+        - "{{ install_dir }}/backups"
+        - "{{ data_dir }}"
+        - "{{ log_dir }}"
+        - "{{ config_dir }}"
+
+    - name: Deploy binary from local build
+      ansible.builtin.copy:
+        src: "../build/linux-gcc-release/ai-agent"
+        dest: "{{ install_dir }}/bin/ai-agent"
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: "0755"
+      when: artifact_path == ''
+      notify: Restart ai-agent
+
+    - name: Deploy binary from CI artifact
+      ansible.builtin.copy:
+        src: "{{ artifact_path }}"
+        dest: "{{ install_dir }}/bin/ai-agent"
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: "0755"
+      when: artifact_path != ''
+      notify: Restart ai-agent
+
+    - name: Deploy configuration files
+      ansible.builtin.copy:
+        src: "../config/"
+        dest: "{{ install_dir }}/config/"
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: "0644"
+      notify: Restart ai-agent
+
+    - name: Create .env file from template
+      ansible.builtin.template:
+        src: ".env.j2"
+        dest: "{{ install_dir }}/.env"
+        owner: "{{ app_user }}"
+        group: "{{ app_group }}"
+        mode: "0600"
+      notify: Restart ai-agent
+
+    - name: Deploy systemd service unit
+      ansible.builtin.template:
+        src: "ai-agent.service.j2"
+        dest: "/etc/systemd/system/{{ app_name }}.service"
+        owner: root
+        group: root
+        mode: "0644"
+      notify:
+        - Reload systemd
+        - Restart ai-agent
+
+    - name: Enable and start service
+      ansible.builtin.systemd:
+        name: "{{ app_name }}"
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
+    - name: Display service status
+      ansible.builtin.command: systemctl status {{ app_name }} --no-pager
+      register: svc_status
+      changed_when: false
+
+    - name: Show service status
+      ansible.builtin.debug:
+        var: svc_status.stdout_lines
+
+  handlers:
+    - name: Reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: yes
+
+    - name: Restart ai-agent
+      ansible.builtin.systemd:
+        name: "{{ app_name }}"
+        state: restarted

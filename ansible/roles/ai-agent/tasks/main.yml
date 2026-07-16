@@ -1,0 +1,8 @@
+---
+# cpp-ai-agent Ansible Role: Tasks
+# 此文件为占位符，具体任务已整合在 deploy.yml 中。
+# 如果需要更复杂的部署逻辑，可将 deploy.yml 中的 tasks 迁移至此。
+
+- name: Placeholder - see deploy.yml for actual tasks
+  ansible.builtin.debug:
+    msg: "cpp-ai-agent role loaded. Use deploy.yml for deployment."

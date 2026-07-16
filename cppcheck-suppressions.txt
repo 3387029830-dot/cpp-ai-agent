@@ -1,0 +1,11 @@
+# ============================================================
+# cppcheck 抑制规则
+# 用法: cppcheck --suppressions-list=cppcheck-suppressions.txt src/
+# ============================================================
+
+# 第三方库头文件
+*:vcpkg_installed/*
+
+# 以下可以根据项目实际情况取消注释:
+# missingInclude:src/llm/LlmClient.h
+# unusedFunction:src/main.cpp

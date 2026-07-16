@@ -1,0 +1,28 @@
+[Unit]
+Description=cpp-ai-agent Service
+Documentation=https://github.com/3387029830-dot/cpp-ai-agent
+After=network.target
+
+[Service]
+Type=simple
+User={{ app_user }}
+Group={{ app_group }}
+WorkingDirectory={{ install_dir }}
+EnvironmentFile={{ install_dir }}/.env
+ExecStart={{ install_dir }}/bin/ai-agent
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier={{ app_name }}
+
+# 安全加固
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths={{ data_dir }} {{ log_dir }}
+ReadOnlyPaths={{ install_dir }}/config
+
+[Install]
+WantedBy=multi-user.target

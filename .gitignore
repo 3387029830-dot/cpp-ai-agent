@@ -49,6 +49,16 @@ Desktop.ini
 *.tmp
 *.temp
 
+# Static Analysis
+build-wrapper-output/
+build/analysis-reports/
+*.gcov
+*.lcov
+coverage.xml
+cppcheck-report.xml
+xunit-result.xml
+.sonar
+
 # Archive
 *.zip
 *.7z

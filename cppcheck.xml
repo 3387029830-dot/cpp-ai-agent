@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ============================================================
+ cppcheck 静态分析配置文件
+ 项目: cpp-ai-agent (C++17, MSVC)
+ 用法: cppcheck --project=cppcheck.xml
+       或 cppcheck --suppressions-list=cppcheck-suppressions.txt src/
+============================================================ -->
+<project version="1">
+    <builddir>build/cppcheck</builddir>
+    <platform>win64</platform>
+</project>

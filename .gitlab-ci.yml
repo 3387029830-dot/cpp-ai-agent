@@ -16,10 +16,14 @@ workflow:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == "main"
 
-build:
+build-windows:
   stage: build
   tags:
     - windows
+  rules:
+    - if: '$USE_LINUX_BUILD == "true"'
+      when: never
+    - when: on_success
   before_script:
     - cd C:\ci-builds\oAGzz63rx\0\2025-2026-3-devops\2025-se-37-ai\cpp-ai-agent
     - Write-Host "Restoring vcpkg packages..."
@@ -56,10 +60,11 @@ test:
   stage: test
   tags:
     - windows
-  dependencies:
-    - build
   needs:
-    - build
+    - job: build-windows
+      optional: true
+    - job: build-linux
+      optional: true
   script:
     - Write-Host "=== Running Tests ==="
     - cd C:\GitLab-Runner\build-output\msvc-vcpkg-debug
@@ -73,7 +78,8 @@ sonarqube:
   tags:
     - windows
   needs:
-    - build
+    - job: build-windows
+      optional: true
     - test
   rules:
     - if: '$SONAR_HOST_URL && $SONAR_TOKEN'
@@ -90,7 +96,10 @@ deploy:
   tags:
     - windows
   needs:
-    - build
+    - job: build-windows
+      optional: true
+    - job: build-linux
+      optional: true
     - test
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
@@ -105,4 +114,79 @@ deploy:
   artifacts:
     paths:
       - release/ai-agent.zip
+    expire_in: 30 days
+
+# ══════════════════════════════════════════════════
+# Linux Jobs (shell executor, tag: linux)
+# Runner: 192.168.149.129
+# 环境准备: sudo bash scripts/setup_linux.sh
+# ══════════════════════════════════════════════════
+
+build-linux:
+  stage: build
+  tags:
+    - linux
+  rules:
+    - if: '$USE_LINUX_BUILD == "true"'
+    - when: never
+  before_script:
+    - export VCPKG_ROOT=/opt/vcpkg
+    - git submodule update --init --recursive 2>/dev/null || true
+    - echo "=== Linux Build Environment ==="
+    - g++ --version | head -1
+    - cmake --version | head -1
+    - ninja --version 2>/dev/null || true
+  script:
+    - echo "=== Configuring CMake (Linux GCC Debug) ==="
+    - cmake --preset linux-gcc-debug
+    - echo "=== Configuring CMake (Linux GCC Release) ==="
+    - cmake --preset linux-gcc-release
+    - echo "=== Building Debug ==="
+    - cmake --build --preset linux-gcc-debug
+    - echo "=== Building Release ==="
+    - cmake --build --preset linux-gcc-release
+    - echo "=== Collecting artifacts ==="
+    - mkdir -p build-output/linux-gcc
+    - cp build/linux-gcc-release/ai-agent build-output/linux-gcc/ 2>/dev/null || true
+    - cp config/*.json build-output/linux-gcc/ 2>/dev/null || true
+    - cp .env.example build-output/linux-gcc/ 2>/dev/null || true
+  artifacts:
+    name: ai-agent-linux-${CI_COMMIT_SHORT_SHA}
+    paths:
+      - build-output/
+    expire_in: 7 days
+
+test-linux:
+  stage: test
+  tags:
+    - linux
+  needs:
+    - build-linux
+  script:
+    - echo "=== Running CTest ==="
+    - cd build/linux-gcc-debug
+    - ctest --output-on-failure
+  artifacts:
+    when: always
+    expire_in: 30 days
+
+deploy-linux:
+  stage: deploy
+  tags:
+    - linux
+  needs:
+    - build-linux
+    - test-linux
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  script:
+    - echo "=== Packaging Linux release ==="
+    - cd build/linux-gcc-release
+    - tar -czf ai-agent-linux.tar.gz ai-agent 2>/dev/null || true
+    - ls -lh ai-agent-linux.tar.gz 2>/dev/null || echo "No binary to package"
+    - echo "=== Ansible deploy (stub) ==="
+    - ansible-playbook -i ansible/inventory.ini ansible/deploy.yml --extra-vars "version=${CI_COMMIT_SHORT_SHA}" 2>/dev/null || echo "Ansible deploy skipped (not configured)"
+  artifacts:
+    paths:
+      - build/linux-gcc-release/ai-agent-linux.tar.gz
     expire_in: 30 days
