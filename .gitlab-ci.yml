@@ -160,8 +160,12 @@ test-linux:
   stage: test
   tags:
     - linux
+  rules:
+    - if: '$USE_LINUX_BUILD == "true"'
+    - when: never
   needs:
-    - build-linux
+    - job: build-linux
+      optional: true
   script:
     - echo "=== Running CTest ==="
     - cd build/linux-gcc-debug
@@ -175,10 +179,13 @@ deploy-linux:
   tags:
     - linux
   needs:
-    - build-linux
-    - test-linux
+    - job: build-linux
+      optional: true
+    - job: test-linux
+      optional: true
   rules:
-    - if: $CI_COMMIT_BRANCH == "main"
+    - if: '$CI_COMMIT_BRANCH == "main" && $USE_LINUX_BUILD == "true"'
+    - when: never
   script:
     - echo "=== Packaging Linux release ==="
     - cd build/linux-gcc-release
