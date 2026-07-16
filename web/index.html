@@ -41,8 +41,8 @@
     <section class="stage">
       <header class="commandbar">
         <div>
-          <span class="eyebrow">local agent workspace</span>
-          <h1>Control Deck</h1>
+          <span id="view-eyebrow" class="eyebrow">local agent workspace</span>
+          <h1 id="view-title">Control Deck</h1>
         </div>
         <div class="connection">
           <span id="status-dot"></span>
@@ -50,8 +50,37 @@
         </div>
       </header>
 
-      <section class="chat-wrap">
-        <div id="chat" class="chat-log"></div>
+      <section class="stage-body">
+        <div id="chat-view" class="view-page active">
+          <div id="chat" class="chat-log"></div>
+        </div>
+
+        <div id="tools-view" class="view-page">
+          <div class="view-intro">
+            <span class="eyebrow">tool registry</span>
+            <h2>Tool Registry</h2>
+            <p>read, write, search, command, and MCP adapters</p>
+          </div>
+          <div id="tool-cards" class="card-grid"></div>
+        </div>
+
+        <div id="skills-view" class="view-page">
+          <div class="view-intro">
+            <span class="eyebrow">skill catalog</span>
+            <h2>Skill Catalog</h2>
+            <p>task presets with scoped tool access</p>
+          </div>
+          <div id="skill-cards" class="card-grid"></div>
+        </div>
+
+        <div id="runs-view" class="view-page">
+          <div class="view-intro">
+            <span class="eyebrow">demo commands</span>
+            <h2>Demo Runs</h2>
+            <p>presentation commands and repeatable checkpoints</p>
+          </div>
+          <div id="run-cards" class="card-grid command-grid"></div>
+        </div>
       </section>
 
       <section class="composer">
@@ -98,11 +127,12 @@
           <button class="tab active" data-tab="activity">Activity</button>
           <button class="tab" data-tab="capability">Capability</button>
         </div>
-      <div id="activity" class="tab-page active">
+        <div id="activity" class="tab-page active">
+          <p class="activity-note">Runtime trace: tools, permissions, uploads, settings, warnings.</p>
           <div id="tools" class="timeline">
             <div class="empty-state" data-empty="activity">
-              <b>Waiting for activity</b>
-              <span>Tool calls, uploads, permission prompts, warnings, and settings changes will appear here.</span>
+              <b>Ready</b>
+              <span>Execution events will appear here.</span>
             </div>
           </div>
         </div>

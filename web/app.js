@@ -15,12 +15,26 @@ const permPreview = document.getElementById("perm-preview");
 const sendHint = document.getElementById("send-hint");
 const dropZone = document.getElementById("drop-zone");
 const fileInput = document.getElementById("file-input");
+const viewTitle = document.getElementById("view-title");
+const viewEyebrow = document.getElementById("view-eyebrow");
+const toolCards = document.getElementById("tool-cards");
+const skillCards = document.getElementById("skill-cards");
+const runCards = document.getElementById("run-cards");
 
 let lastEventId = 0;
 let eventsSeen = 0;
-let toolsSeen = 0;
 let uploadsSeen = 0;
 let currentAssistant = null;
+const seenEventIds = new Set();
+let currentView = "chat";
+let statusCache = { tools: [], skills: [], commands: [] };
+
+const viewCopy = {
+  chat: ["local agent workspace", "Control Deck"],
+  tools: ["tool registry", "Tools"],
+  skills: ["skill catalog", "Skills"],
+  runs: ["demo command center", "Runs"],
+};
 
 function scrollToBottom(el) {
   el.scrollTop = el.scrollHeight;
@@ -42,10 +56,6 @@ function message(role, text) {
 }
 
 function activity(type, title, detail) {
-  if (type === "tool" || type === "permission" || type === "upload") {
-    toolsSeen += 1;
-    toolCount.textContent = String(toolsSeen);
-  }
   const empty = tools.querySelector("[data-empty='activity']");
   if (empty) empty.remove();
   const row = document.createElement("div");
@@ -57,6 +67,9 @@ function activity(type, title, detail) {
   body.textContent = detail || "";
   row.append(head, body);
   tools.prepend(row);
+  while (tools.querySelectorAll(".timeline-item").length > 30) {
+    tools.querySelector(".timeline-item:last-of-type")?.remove();
+  }
 }
 
 function setPermissionMode(mode) {
@@ -67,6 +80,11 @@ function setPermissionMode(mode) {
 }
 
 function hydrateStatus(status) {
+  statusCache = {
+    tools: status.tools || [],
+    skills: status.skills || [],
+    commands: status.commands || [],
+  };
   document.getElementById("model").textContent = status.model || "model";
   document.getElementById("workspace").textContent = status.workspace || ".";
   document.getElementById("history").textContent = status.history || "logs";
@@ -79,7 +97,7 @@ function hydrateStatus(status) {
   skillList.innerHTML = "";
   commandList.innerHTML = "";
 
-  for (const tool of status.tools || []) {
+  for (const tool of statusCache.tools) {
     const item = document.createElement("span");
     item.className = `pill ${tool.risk || "safe"}`;
     item.textContent = tool.name;
@@ -87,7 +105,7 @@ function hydrateStatus(status) {
     toolList.appendChild(item);
   }
 
-  for (const skill of status.skills || []) {
+  for (const skill of statusCache.skills) {
     const item = document.createElement("span");
     item.className = "pill skill";
     item.textContent = skill.name;
@@ -95,17 +113,20 @@ function hydrateStatus(status) {
     skillList.appendChild(item);
   }
 
-  for (const command of status.commands || []) {
+  for (const command of statusCache.commands) {
     const item = document.createElement("code");
     item.textContent = command;
     commandList.appendChild(item);
   }
 
-  skillCount.textContent = String((status.skills || []).length);
-  if ((status.tools || []).length > 0) toolCount.textContent = String(status.tools.length);
+  skillCount.textContent = String(statusCache.skills.length);
+  toolCount.textContent = String(statusCache.tools.length);
+  renderMainViews();
 }
 
 function handleEvent(event) {
+  if (seenEventIds.has(event.id)) return;
+  seenEventIds.add(event.id);
   lastEventId = Math.max(lastEventId, event.id);
   eventsSeen += 1;
   eventCount.textContent = `${eventsSeen} events`;
@@ -144,8 +165,90 @@ function handleEvent(event) {
     activity("upload", `uploaded ${event.title}`, event.detail);
   } else if (event.type === "settings") {
     activity("settings", "settings", event.detail);
-  } else {
-    activity("event", event.title || event.type || "event", event.detail || "");
+  }
+}
+
+function card(title, subtitle, detail, tone, action) {
+  const node = document.createElement("button");
+  node.className = `capability-card ${tone || ""}`;
+  node.type = "button";
+  node.innerHTML = `
+    <span>${subtitle || ""}</span>
+    <b></b>
+    <p></p>
+  `;
+  node.querySelector("b").textContent = title;
+  node.querySelector("p").textContent = detail || "";
+  node.addEventListener("click", action);
+  return node;
+}
+
+function riskLabel(risk) {
+  if (risk === "dangerous") return "Dangerous command";
+  if (risk === "write") return "Write access";
+  return "Safe read";
+}
+
+function renderMainViews() {
+  toolCards.innerHTML = "";
+  skillCards.innerHTML = "";
+  runCards.innerHTML = "";
+
+  for (const tool of statusCache.tools) {
+    toolCards.appendChild(card(
+      tool.name,
+      riskLabel(tool.risk),
+      tool.description,
+      tool.risk,
+      () => {
+        input.value = `请演示 ${tool.name} 工具，并说明它的输入、风险等级和适用场景。`;
+        input.focus();
+      },
+    ));
+  }
+
+  for (const skill of statusCache.skills) {
+    const allowed = (skill.tools || []).join(", ");
+    skillCards.appendChild(card(
+      skill.name,
+      "Skill preset",
+      `${skill.description || ""}${allowed ? ` Allowed tools: ${allowed}` : ""}`,
+      "skill",
+      () => {
+        input.value = `/use-skill ${skill.name}`;
+        input.focus();
+      },
+    ));
+  }
+
+  for (const command of statusCache.commands) {
+    runCards.appendChild(card(
+      command,
+      "Command",
+      "Click to copy this command into the input box.",
+      "command",
+      () => {
+        input.value = command.replace(" <query>", " MCP 是什么").replace(" <log.jsonl>", "");
+        input.focus();
+      },
+    ));
+  }
+}
+
+function switchView(view, updateHash = true) {
+  if (!viewCopy[view]) view = "chat";
+  currentView = view;
+  document.querySelectorAll(".nav-item").forEach((item) => {
+    item.classList.toggle("active", item.dataset.view === view);
+  });
+  document.querySelectorAll(".view-page").forEach((page) => {
+    page.classList.toggle("active", page.id === `${view}-view`);
+  });
+  const copy = viewCopy[view] || viewCopy.chat;
+  viewEyebrow.textContent = copy[0];
+  viewTitle.textContent = copy[1];
+  if (updateHash && window.location.hash !== `#${view}`) {
+    history.replaceState(null, "", `#${view}`);
   }
 }
 
@@ -265,6 +368,13 @@ document.querySelectorAll(".prompt-chip").forEach((chip) => {
   });
 });
 
+document.querySelectorAll(".nav-item").forEach((item) => {
+  item.addEventListener("click", () => switchView(item.dataset.view));
+});
+
+window.addEventListener("hashchange", () => switchView(window.location.hash.slice(1) || "chat", false));
+
 message("assistant", "Control Deck online.");
+switchView(window.location.hash.slice(1) || "chat", false);
 refreshStatus().catch(() => {});
 poll();
