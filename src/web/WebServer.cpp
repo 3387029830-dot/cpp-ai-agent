@@ -10,6 +10,7 @@
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
+#include <system_error>
 #include <thread>
 
 #ifdef _WIN32
@@ -133,6 +134,21 @@ std::string routePath(const std::string& target) {
     return queryPos == std::string::npos ? target : target.substr(0, queryPos);
 }
 
+std::string safeFileName(std::string value) {
+    if (value.empty() || value == "." || value == "..") {
+        return "upload.txt";
+    }
+
+    for (auto& ch : value) {
+        const auto uch = static_cast<unsigned char>(ch);
+        if (ch == '/' || ch == '\\' || ch == ':' || ch == '*' || ch == '?' ||
+            ch == '"' || ch == '<' || ch == '>' || ch == '|' || uch < 32) {
+            ch = '_';
+        }
+    }
+    return value;
+}
+
 void sendAll(std::uintptr_t rawSocket, const std::string& data) {
 #ifdef _WIN32
     const auto socket = static_cast<SOCKET>(rawSocket);
@@ -154,10 +170,20 @@ void sendAll(std::uintptr_t rawSocket, const std::string& data) {
 
 }  // namespace
 
-WebServer::WebServer(std::string webRoot) : webRoot_(std::move(webRoot)) {}
+WebServer::WebServer(std::string webRoot, std::string workspaceRoot)
+    : webRoot_(std::move(webRoot)), workspaceRoot_(std::move(workspaceRoot)) {}
 
 void WebServer::setChatHandler(ChatHandler handler) {
     chatHandler_ = std::move(handler);
+}
+
+void WebServer::setSettingsHandler(SettingsHandler handler) {
+    settingsHandler_ = std::move(handler);
+}
+
+void WebServer::setStatusPayload(nlohmann::json payload) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    statusPayload_ = std::move(payload);
 }
 
 void WebServer::pushEvent(std::string type, std::string title, std::string detail, nlohmann::json data) {
@@ -255,11 +281,47 @@ std::string WebServer::eventsAfter(int lastId) const {
 }
 
 std::string WebServer::statusJson() const {
-    return dumpJson({
-        {"name", "cpp-ai-agent"},
-        {"mode", "web"},
-        {"busy", isBusy()},
-    });
+    nlohmann::json payload;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        payload = statusPayload_;
+    }
+    payload["name"] = "cpp-ai-agent";
+    payload["mode"] = "web";
+    payload["busy"] = isBusy();
+    return dumpJson(payload);
+}
+
+std::string WebServer::uploadFile(const nlohmann::json& body) {
+    const auto filename = safeFileName(body.value("filename", "upload.txt"));
+    const auto content = body.value("content", "");
+    const auto uploadRoot = std::filesystem::path(workspaceRoot_) / "uploads";
+
+    std::error_code ec;
+    std::filesystem::create_directories(uploadRoot, ec);
+    if (ec) {
+        throw std::runtime_error("failed to create uploads directory: " + ec.message());
+    }
+
+    const auto outputPath = uploadRoot / filename;
+    std::ofstream output(outputPath, std::ios::binary | std::ios::trunc);
+    if (!output) {
+        throw std::runtime_error("failed to write upload file");
+    }
+    output << content;
+
+    const auto relative = (std::filesystem::path("uploads") / filename).generic_string();
+    pushEvent(
+        "upload",
+        filename,
+        relative,
+        {
+            {"filename", filename},
+            {"path", relative},
+            {"bytes", content.size()},
+        }
+    );
+    return dumpJson({{"ok", true}, {"path", relative}, {"bytes", content.size()}});
 }
 
 void WebServer::handleClient(std::uintptr_t clientSocket) {
@@ -332,6 +394,16 @@ void WebServer::handleClient(std::uintptr_t clientSocket) {
             const auto parsed = nlohmann::json::parse(body.empty() ? "{}" : body);
             resolvePermission(parsed.value("approved", false));
             sendAll(clientSocket, jsonResponse(R"({"ok":true})"));
+        } else if (method == "POST" && path == "/api/settings") {
+            if (!settingsHandler_) {
+                sendAll(clientSocket, badRequestResponse("settings handler is not configured"));
+            } else {
+                const auto parsed = nlohmann::json::parse(body.empty() ? "{}" : body);
+                sendAll(clientSocket, jsonResponse(dumpJson(settingsHandler_(parsed))));
+            }
+        } else if (method == "POST" && path == "/api/upload") {
+            const auto parsed = nlohmann::json::parse(body.empty() ? "{}" : body);
+            sendAll(clientSocket, jsonResponse(uploadFile(parsed)));
         } else if (method == "GET") {
             if (path.find("..") != std::string::npos || path.find('\\') != std::string::npos) {
                 sendAll(clientSocket, notFoundResponse());

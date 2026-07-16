@@ -6,59 +6,109 @@ const statusText = document.getElementById("status-text");
 const statusDot = document.getElementById("status-dot");
 const eventCount = document.getElementById("event-count");
 const toolCount = document.getElementById("tool-count");
+const skillCount = document.getElementById("skill-count");
+const uploadCount = document.getElementById("upload-count");
 const busyText = document.getElementById("busy");
 const permission = document.getElementById("permission");
 const permTitle = document.getElementById("perm-title");
 const permPreview = document.getElementById("perm-preview");
+const sendHint = document.getElementById("send-hint");
+const dropZone = document.getElementById("drop-zone");
+const fileInput = document.getElementById("file-input");
 
 let lastEventId = 0;
 let eventsSeen = 0;
 let toolsSeen = 0;
+let uploadsSeen = 0;
 let currentAssistant = null;
-
-function escapeText(value) {
-  return String(value ?? "");
-}
 
 function scrollToBottom(el) {
   el.scrollTop = el.scrollHeight;
 }
 
 function message(role, text) {
-  const div = document.createElement("div");
-  div.className = `message ${role}`;
-  const label = document.createElement("span");
-  label.className = "role";
-  label.textContent = role === "user" ? "you" : "assistant";
-  const content = document.createElement("span");
-  content.className = "content";
-  content.textContent = escapeText(text);
-  div.append(label, content);
-  chat.appendChild(div);
+  const row = document.createElement("article");
+  row.className = `message ${role}`;
+  const meta = document.createElement("div");
+  meta.className = "message-meta";
+  meta.textContent = role === "user" ? "you" : "agent";
+  const body = document.createElement("div");
+  body.className = "message-body";
+  body.textContent = text || "";
+  row.append(meta, body);
+  chat.appendChild(row);
   scrollToBottom(chat);
-  return content;
+  return body;
 }
 
-function tool(type, title, detail) {
-  toolsSeen += 1;
-  toolCount.textContent = String(toolsSeen);
-  const div = document.createElement("div");
-  div.className = `tool-item ${type}`;
-  const t = document.createElement("div");
-  t.className = "tool-title";
-  t.textContent = title || type;
-  const d = document.createElement("div");
-  d.className = "tool-detail";
-  d.textContent = detail || "";
-  div.append(t, d);
-  tools.appendChild(div);
-  scrollToBottom(tools);
+function activity(type, title, detail) {
+  if (type === "tool" || type === "permission" || type === "upload") {
+    toolsSeen += 1;
+    toolCount.textContent = String(toolsSeen);
+  }
+  const empty = tools.querySelector("[data-empty='activity']");
+  if (empty) empty.remove();
+  const row = document.createElement("div");
+  row.className = `timeline-item ${type}`;
+  const head = document.createElement("div");
+  head.className = "timeline-head";
+  head.textContent = title || type;
+  const body = document.createElement("pre");
+  body.textContent = detail || "";
+  row.append(head, body);
+  tools.prepend(row);
+}
+
+function setPermissionMode(mode) {
+  document.getElementById("permission-mode-label").textContent = mode.replace("_", " ");
+  document.querySelectorAll("#permission-modes button").forEach((button) => {
+    button.classList.toggle("active", button.dataset.mode === mode);
+  });
+}
+
+function hydrateStatus(status) {
+  document.getElementById("model").textContent = status.model || "model";
+  document.getElementById("workspace").textContent = status.workspace || ".";
+  document.getElementById("history").textContent = status.history || "logs";
+  setPermissionMode(status.permission_mode || "ask_each_time");
+
+  const toolList = document.getElementById("tool-list");
+  const skillList = document.getElementById("skill-list");
+  const commandList = document.getElementById("command-list");
+  toolList.innerHTML = "";
+  skillList.innerHTML = "";
+  commandList.innerHTML = "";
+
+  for (const tool of status.tools || []) {
+    const item = document.createElement("span");
+    item.className = `pill ${tool.risk || "safe"}`;
+    item.textContent = tool.name;
+    item.title = `${tool.risk || "safe"} · ${tool.description || ""}`;
+    toolList.appendChild(item);
+  }
+
+  for (const skill of status.skills || []) {
+    const item = document.createElement("span");
+    item.className = "pill skill";
+    item.textContent = skill.name;
+    item.title = skill.description || "";
+    skillList.appendChild(item);
+  }
+
+  for (const command of status.commands || []) {
+    const item = document.createElement("code");
+    item.textContent = command;
+    commandList.appendChild(item);
+  }
+
+  skillCount.textContent = String((status.skills || []).length);
+  if ((status.tools || []).length > 0) toolCount.textContent = String(status.tools.length);
 }
 
 function handleEvent(event) {
   lastEventId = Math.max(lastEventId, event.id);
   eventsSeen += 1;
-  eventCount.textContent = String(eventsSeen);
+  eventCount.textContent = `${eventsSeen} events`;
 
   if (event.type === "user") {
     message("user", event.detail);
@@ -72,22 +122,36 @@ function handleEvent(event) {
   } else if (event.type === "assistant_done") {
     currentAssistant = null;
   } else if (event.type === "tool_call") {
-    tool("tool", `● ${event.title}`, event.detail);
+    const risk = event.data?.risk ? ` · ${event.data.risk}` : "";
+    activity("tool", `${event.title}${risk}`, event.detail);
   } else if (event.type === "tool_result") {
-    tool("tool", `└ ${event.title}`, event.detail);
+    activity("tool", `${event.title} result`, event.detail);
   } else if (event.type === "warning") {
-    tool("warning", "warning", event.detail);
+    activity("warning", "warning", event.detail);
   } else if (event.type === "error") {
-    tool("error", "error", event.detail);
+    activity("error", "error", event.detail);
   } else if (event.type === "permission") {
     const data = event.data || {};
     permTitle.textContent = `${data.tool || event.title} · ${data.risk || "unknown"}`;
     permPreview.textContent = data.preview || data.arguments || event.detail || "";
     permission.classList.add("visible");
-    tool("permission", "permission required", permTitle.textContent);
+    activity("permission", "permission requested", permTitle.textContent);
   } else if (event.type === "permission_result") {
-    tool("permission", "permission result", event.detail);
+    activity("permission", "permission result", event.detail);
+  } else if (event.type === "upload") {
+    uploadsSeen += 1;
+    uploadCount.textContent = String(uploadsSeen);
+    activity("upload", `uploaded ${event.title}`, event.detail);
+  } else if (event.type === "settings") {
+    activity("settings", "settings", event.detail);
+  } else {
+    activity("event", event.title || event.type || "event", event.detail || "");
   }
+}
+
+async function refreshStatus() {
+  const res = await fetch("/api/status");
+  hydrateStatus(await res.json());
 }
 
 async function poll() {
@@ -95,15 +159,15 @@ async function poll() {
     const res = await fetch(`/api/events?after=${lastEventId}`);
     const data = await res.json();
     statusText.textContent = "connected";
-    statusDot.style.background = "var(--green)";
+    statusDot.style.background = "var(--ok)";
     busyText.textContent = data.busy ? "busy" : "idle";
     send.disabled = Boolean(data.busy);
     for (const event of data.events || []) handleEvent(event);
   } catch {
     statusText.textContent = "offline";
-    statusDot.style.background = "var(--rose)";
+    statusDot.style.background = "var(--danger)";
   } finally {
-    setTimeout(poll, 550);
+    setTimeout(poll, 420);
   }
 }
 
@@ -112,11 +176,13 @@ async function sendMessage() {
   if (!content) return;
   input.value = "";
   send.disabled = true;
-  await fetch("/api/chat", {
+  sendHint.textContent = "running";
+  const res = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ content }),
   });
+  sendHint.textContent = res.ok ? "accepted" : "rejected";
 }
 
 async function approve(approved) {
@@ -128,6 +194,33 @@ async function approve(approved) {
   });
 }
 
+async function updatePermissionMode(mode) {
+  setPermissionMode(mode);
+  const res = await fetch("/api/settings", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ permission_mode: mode }),
+  });
+  if (res.ok) {
+    const data = await res.json();
+    hydrateStatus(data.status || {});
+  }
+}
+
+async function uploadFiles(files) {
+  for (const file of files) {
+    const content = await file.text();
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ filename: file.name, content }),
+    });
+    if (!res.ok) {
+      activity("error", `upload failed ${file.name}`, await res.text());
+    }
+  }
+}
+
 send.addEventListener("click", sendMessage);
 input.addEventListener("keydown", (event) => {
   if (event.key === "Enter" && !event.shiftKey) {
@@ -135,12 +228,43 @@ input.addEventListener("keydown", (event) => {
     sendMessage();
   }
 });
+
 document.getElementById("approve").addEventListener("click", () => approve(true));
 document.getElementById("deny").addEventListener("click", () => approve(false));
-document.getElementById("clear-btn").addEventListener("click", () => {
-  chat.innerHTML = "";
-  tools.innerHTML = "";
+document.getElementById("upload-btn").addEventListener("click", () => fileInput.click());
+fileInput.addEventListener("change", () => uploadFiles(fileInput.files));
+
+dropZone.addEventListener("dragover", (event) => {
+  event.preventDefault();
+  dropZone.classList.add("dragging");
+});
+dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragging"));
+dropZone.addEventListener("drop", (event) => {
+  event.preventDefault();
+  dropZone.classList.remove("dragging");
+  uploadFiles(event.dataTransfer.files);
 });
 
-message("assistant", "系统就绪。");
+document.querySelectorAll("#permission-modes button").forEach((button) => {
+  button.addEventListener("click", () => updatePermissionMode(button.dataset.mode));
+});
+
+document.querySelectorAll(".tab").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach((item) => item.classList.remove("active"));
+    document.querySelectorAll(".tab-page").forEach((item) => item.classList.remove("active"));
+    tab.classList.add("active");
+    document.getElementById(tab.dataset.tab).classList.add("active");
+  });
+});
+
+document.querySelectorAll(".prompt-chip").forEach((chip) => {
+  chip.addEventListener("click", () => {
+    input.value = chip.textContent;
+    input.focus();
+  });
+});
+
+message("assistant", "Control Deck online.");
+refreshStatus().catch(() => {});
 poll();

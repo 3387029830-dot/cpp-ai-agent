@@ -7,9 +7,9 @@
 
 ## 当前状态
 
-当前版本：v0.1.0。项目已完成 M0-M8 演示版闭环：M0-M5 覆盖 CMake + vcpkg 构建、OpenAI 兼容 API 对话、工具调用、权限确认、JSONL 日志、历史回放、配置诊断、ANSI 增强流式控制台界面和答辩材料；M6-M8 继续补充 Web 搜索、最小 MCP 客户端和跨环境工程化稳定性。
+当前版本：v0.1.0。项目已完成 M0-M10 演示版闭环：M0-M5 覆盖 CMake + vcpkg 构建、OpenAI 兼容 API 对话、工具调用、权限确认、JSONL 日志、历史回放、配置诊断、ANSI 增强流式控制台界面和答辩材料；M6-M10 继续补充 Web 搜索、最小 MCP 客户端、跨环境工程化稳定性、代码质量评估和 Web Control Deck 双模式界面。
 
-在 v0.1.0 交付版之后，项目增强了 AgentLoop 的可测试性、终端呈现、搜索体验、MCP 集成、Windows 构建稳定性、代码质量评估和双界面演示能力：新增 `ContextManager` 上下文窗口、可注入的 `ILlmClient` 接口、独立 `tool_calls` 解析测试、Agent 主循环 mock LLM 自动化测试、`src/ui/Console.*` 流式控制台呈现模块、浏览器 Web Console、Bing RSS 优先的 Web 搜索、可由模型自动调用的内置 MCP 工具、项目级 `AGENTS.md` 规范注入、Visual Studio generator 默认构建、Windows 中文命令行参数修复和 SonarQube 静态扫描入口。
+在 v0.1.0 交付版之后，项目增强了 AgentLoop 的可测试性、终端呈现、搜索体验、MCP 集成、Windows 构建稳定性、代码质量评估和双界面演示能力：新增 `ContextManager` 上下文窗口、可注入的 `ILlmClient` 接口、独立 `tool_calls` 解析测试、Agent 主循环 mock LLM 自动化测试、`src/ui/Console.*` 流式控制台呈现模块、浏览器 Web Control Deck、Bing RSS 优先的 Web 搜索、可由模型自动调用的内置 MCP 工具、项目级 `AGENTS.md` 规范注入、Visual Studio generator 默认构建、Windows 中文命令行参数修复和 SonarQube 静态扫描入口。
 
 ## 快速开始
 
@@ -149,7 +149,7 @@ http://127.0.0.1:8080
 .\build\msvc-vcpkg-debug\ai-agent.exe --ui web 8090
 ```
 
-Web Console 使用同一套 `AgentLoop`、工具系统、权限管理和 JSONL 日志，只是把 Conversation / Tools / Status / Input 四个区域放到浏览器里展示。TUI 仍然保留，适合命令行答辩；Web 模式适合投屏演示完整任务流。
+Web Control Deck 使用同一套 `AgentLoop`、工具系统、权限管理和 JSONL 日志，在浏览器中提供 Chat / Tools / Skills / Runs 导航、状态指标、工具与 Skill 能力面板、权限模式切换、文件上传和浏览器侧权限确认。TUI 仍然保留，适合命令行答辩；Web 模式适合投屏演示完整任务流。
 
 也可以不创建 `.env`，改用系统环境变量：
 
@@ -407,6 +407,7 @@ cpp-ai-agent/
 | M7 | 实现最小 MCP stdio 客户端、内置 MCP 测试 server、MCP 工具调用和外部 server 工具发现 |
 | M8 | 完成工程化稳定性优化：`AGENTS.md` 项目级规范注入、Visual Studio generator 默认构建、NMake 备用 preset、固定 exe 输出目录、Windows 中文命令行参数修复和 GitHub/GitLab 同步流程 |
 | M9 | 增加 SonarQube 代码质量评估入口：`sonar-project.properties`、GitLab CI `quality` 阶段和配置文档 |
+| M10 | 升级 Web Control Deck 双模式界面：动态工作台、能力面板、权限模式设置、文件上传和投屏演示流程 |
 
 ## 说明
 

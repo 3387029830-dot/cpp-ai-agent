@@ -754,7 +754,7 @@ int main(int argc, char* argv[]) {
 
         std::unique_ptr<WebServer> webServer;
         if (webMode) {
-            webServer = std::make_unique<WebServer>("web");
+            webServer = std::make_unique<WebServer>("web", appConfig.workspaceRoot);
         }
 
         PermissionManager permissions(
@@ -848,6 +848,73 @@ int main(int argc, char* argv[]) {
                 return "Tool '" + toolName + "' is blocked by active skill '" + activeSkillName + "'.";
             }
         );
+
+        const auto permissionModeName = [](cpp_ai_agent::security::PermissionMode mode) {
+            switch (mode) {
+                case cpp_ai_agent::security::PermissionMode::ReadOnly:
+                    return std::string("read_only");
+                case cpp_ai_agent::security::PermissionMode::TrustSession:
+                    return std::string("trust_session");
+                case cpp_ai_agent::security::PermissionMode::AskEachTime:
+                    return std::string("ask_each_time");
+            }
+            return std::string("ask_each_time");
+        };
+
+        const auto buildWebStatusPayload = [&]() {
+            nlohmann::json toolItems = nlohmann::json::array();
+            for (const auto& name : tools.names()) {
+                const auto* tool = tools.find(name);
+                toolItems.push_back({
+                    {"name", name},
+                    {"risk", tool == nullptr ? "unknown" : cpp_ai_agent::security::riskLevelToString(tool->risk())},
+                    {"description", tool == nullptr ? "" : tool->description()},
+                });
+            }
+
+            nlohmann::json skillItems = nlohmann::json::array();
+            for (const auto& skill : skillCatalog.all()) {
+                skillItems.push_back({
+                    {"name", skill.name},
+                    {"description", skill.description},
+                    {"tools", skill.allowedTools},
+                });
+            }
+
+            return nlohmann::json({
+                {"model", appConfig.llm.model},
+                {"base_url", appConfig.llm.baseUrl},
+                {"workspace", appConfig.workspaceRoot},
+                {"history", appConfig.historyDir},
+                {"permission_mode", permissionModeName(permissions.mode())},
+                {"tools", toolItems},
+                {"skills", skillItems},
+                {"commands", nlohmann::json::array({
+                    "/web", "/doctor", "/skills", "/search <query>", "/mcp-demo",
+                    "/mcp-call-demo", "/history", "/load <log.jsonl>"
+                })},
+            });
+        };
+
+        if (webServer) {
+            webServer->setStatusPayload(buildWebStatusPayload());
+            webServer->setSettingsHandler(
+                [&permissions, &webServer, &buildWebStatusPayload](const nlohmann::json& body) {
+                    const auto mode = body.value("permission_mode", "");
+                    if (!mode.empty()) {
+                        permissions.setMode(cpp_ai_agent::security::permissionModeFromString(mode));
+                    }
+                    const auto payload = buildWebStatusPayload();
+                    webServer->setStatusPayload(payload);
+                    webServer->pushEvent(
+                        "settings",
+                        "permission",
+                        payload.value("permission_mode", "ask_each_time")
+                    );
+                    return nlohmann::json({{"ok", true}, {"status", payload}});
+                }
+            );
+        }
 
         // -- 加载项目规范文件 AGENTS.md --
         auto loadAgentsMd = [](const std::filesystem::path& workspaceRoot) -> std::string {

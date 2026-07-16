@@ -21,10 +21,13 @@ struct WebEvent {
 class WebServer {
 public:
     using ChatHandler = std::function<void(const std::string& content)>;
+    using SettingsHandler = std::function<nlohmann::json(const nlohmann::json& body)>;
 
-    explicit WebServer(std::string webRoot);
+    WebServer(std::string webRoot, std::string workspaceRoot = ".");
 
     void setChatHandler(ChatHandler handler);
+    void setSettingsHandler(SettingsHandler handler);
+    void setStatusPayload(nlohmann::json payload);
     void pushEvent(std::string type, std::string title, std::string detail, nlohmann::json data = nlohmann::json::object());
     void setBusy(bool busy);
     bool isBusy() const;
@@ -41,11 +44,15 @@ public:
 private:
     std::string eventsAfter(int lastId) const;
     std::string statusJson() const;
+    std::string uploadFile(const nlohmann::json& body);
     bool resolvePermission(bool approved);
     void handleClient(std::uintptr_t clientSocket);
 
     std::string webRoot_;
+    std::string workspaceRoot_;
     ChatHandler chatHandler_;
+    SettingsHandler settingsHandler_;
+    nlohmann::json statusPayload_ = nlohmann::json::object();
 
     mutable std::mutex mutex_;
     std::vector<WebEvent> events_;

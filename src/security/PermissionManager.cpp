@@ -25,11 +25,17 @@ bool PermissionManager::approve(const PermissionRequest& request) const {
         return true;
     }
 
-    if (mode_ == PermissionMode::ReadOnly) {
+    PermissionMode mode = PermissionMode::AskEachTime;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        mode = mode_;
+    }
+
+    if (mode == PermissionMode::ReadOnly) {
         return false;
     }
 
-    if (mode_ == PermissionMode::TrustSession) {
+    if (mode == PermissionMode::TrustSession) {
         if (request.toolName == "run_command" && isBlockedDangerousCommand(request.arguments)) {
             return prompt_ ? prompt_(request) : false;
         }
@@ -37,6 +43,16 @@ bool PermissionManager::approve(const PermissionRequest& request) const {
     }
 
     return prompt_ ? prompt_(request) : false;
+}
+
+PermissionMode PermissionManager::mode() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return mode_;
+}
+
+void PermissionManager::setMode(PermissionMode mode) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    mode_ = mode;
 }
 
 PermissionMode permissionModeFromString(const std::string& value) {

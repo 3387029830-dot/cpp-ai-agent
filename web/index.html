@@ -3,80 +3,129 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>cpp-ai-agent Web Console</title>
+  <title>cpp-ai-agent Control Deck</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <main class="shell">
-    <header class="topbar">
-      <div>
-        <div class="eyebrow">cpp-ai-agent</div>
-        <h1>AI Coding Workspace</h1>
-      </div>
-      <div class="status-pill"><span id="status-dot"></span><span id="status-text">connecting</span></div>
-    </header>
-
-    <section class="workspace">
-      <section class="conversation panel">
-        <div class="panel-head">
-          <div>
-            <span class="panel-kicker">Conversation</span>
-            <h2>对话流</h2>
-          </div>
-          <button class="ghost" id="clear-btn">清空视图</button>
+  <main class="deck">
+    <aside class="rail">
+      <div class="brand">
+        <span class="brand-mark">C</span>
+        <div>
+          <b>cpp-ai-agent</b>
+          <span id="model">loading</span>
         </div>
-        <div id="chat" class="chat"></div>
+      </div>
+
+      <nav class="rail-nav" aria-label="views">
+        <button class="nav-item active" data-view="chat">Chat</button>
+        <button class="nav-item" data-view="tools">Tools</button>
+        <button class="nav-item" data-view="skills">Skills</button>
+        <button class="nav-item" data-view="runs">Runs</button>
+      </nav>
+
+      <section class="rail-block">
+        <div class="block-title">Workspace</div>
+        <div class="kv"><span>Root</span><b id="workspace">.</b></div>
+        <div class="kv"><span>History</span><b id="history">logs</b></div>
       </section>
 
-      <aside class="tools panel">
-        <div class="panel-head compact">
-          <div>
-            <span class="panel-kicker">Tools</span>
-            <h2>工具轨迹</h2>
-          </div>
-        </div>
-        <div id="tools" class="tool-list"></div>
-      </aside>
+      <section class="rail-block">
+        <div class="block-title">Quick Prompts</div>
+        <button class="prompt-chip">总结 README 和当前功能</button>
+        <button class="prompt-chip">列出 src 目录架构</button>
+        <button class="prompt-chip">演示一次安全写文件</button>
+      </section>
+    </aside>
 
-      <aside class="status panel">
-        <div class="panel-head compact">
-          <div>
-            <span class="panel-kicker">Status</span>
-            <h2>运行状态</h2>
-          </div>
+    <section class="stage">
+      <header class="commandbar">
+        <div>
+          <span class="eyebrow">local agent workspace</span>
+          <h1>Control Deck</h1>
         </div>
-        <div class="metric-grid">
-          <div><b id="event-count">0</b><span>events</span></div>
-          <div><b id="tool-count">0</b><span>tools</span></div>
-          <div><b id="mode">web</b><span>mode</span></div>
-          <div><b id="busy">idle</b><span>agent</span></div>
+        <div class="connection">
+          <span id="status-dot"></span>
+          <span id="status-text">connecting</span>
         </div>
-        <div class="runtime">
-          <div><span>Loop</span><b>AgentLoop</b></div>
-          <div><span>Policy</span><b>PermissionManager</b></div>
-          <div><span>Trace</span><b>JSONL</b></div>
-        </div>
-      </aside>
+      </header>
 
-      <section class="input panel">
-        <textarea id="input" rows="3" placeholder="请读取 README.md，并用三点总结这个项目。"></textarea>
-        <div class="input-actions">
-          <button id="send">发送</button>
+      <section class="chat-wrap">
+        <div id="chat" class="chat-log"></div>
+      </section>
+
+      <section class="composer">
+        <div id="drop-zone" class="drop-zone">
+          <input id="file-input" type="file" hidden multiple>
+          <button id="upload-btn" class="icon-button" title="Upload files">+</button>
+          <textarea id="input" rows="3" placeholder="Ask the agent to inspect, edit, search, test, or explain the project."></textarea>
+          <button id="send" class="send-button">Run</button>
+        </div>
+        <div class="composer-meta">
           <span id="send-hint">ready</span>
+          <span id="event-count">0 events</span>
         </div>
       </section>
     </section>
+
+    <aside class="inspector">
+      <section class="panel status-panel">
+        <div class="panel-head">
+          <span>Status</span>
+          <b id="busy">idle</b>
+        </div>
+        <div class="metric-row">
+          <div><b id="tool-count">0</b><span>tools</span></div>
+          <div><b id="skill-count">0</b><span>skills</span></div>
+          <div><b id="upload-count">0</b><span>uploads</span></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <span>Permission</span>
+          <b id="permission-mode-label">ask</b>
+        </div>
+        <div class="segmented" id="permission-modes">
+          <button data-mode="ask_each_time" class="active">Ask</button>
+          <button data-mode="read_only">Read</button>
+          <button data-mode="trust_session">Trust</button>
+        </div>
+      </section>
+
+      <section class="panel tabs">
+        <div class="tabbar">
+          <button class="tab active" data-tab="activity">Activity</button>
+          <button class="tab" data-tab="capability">Capability</button>
+        </div>
+      <div id="activity" class="tab-page active">
+          <div id="tools" class="timeline">
+            <div class="empty-state" data-empty="activity">
+              <b>Waiting for activity</b>
+              <span>Tool calls, uploads, permission prompts, warnings, and settings changes will appear here.</span>
+            </div>
+          </div>
+        </div>
+        <div id="capability" class="tab-page">
+          <div class="mini-title">Tools</div>
+          <div id="tool-list" class="pill-list"></div>
+          <div class="mini-title">Skills</div>
+          <div id="skill-list" class="pill-list"></div>
+          <div class="mini-title">Commands</div>
+          <div id="command-list" class="command-list"></div>
+        </div>
+      </section>
+    </aside>
   </main>
 
-  <div class="permission" id="permission">
-    <div class="permission-box">
-      <span class="panel-kicker">Permission</span>
-      <h3>需要确认工具执行</h3>
-      <p id="perm-title"></p>
+  <div class="permission-modal" id="permission">
+    <div class="permission-card">
+      <span class="eyebrow">permission gate</span>
+      <h2 id="perm-title">Tool request</h2>
       <pre id="perm-preview"></pre>
-      <div class="permission-actions">
-        <button id="deny" class="danger">拒绝</button>
-        <button id="approve">允许执行</button>
+      <div class="modal-actions">
+        <button id="deny" class="danger">Deny</button>
+        <button id="approve">Approve</button>
       </div>
     </div>
   </div>

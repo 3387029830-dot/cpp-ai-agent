@@ -3,6 +3,7 @@
 #include "tools/ITool.h"
 
 #include <functional>
+#include <mutex>
 #include <string>
 
 namespace cpp_ai_agent::security {
@@ -27,8 +28,11 @@ public:
     PermissionManager(PermissionMode mode, PermissionPrompt prompt = {});
 
     bool approve(const PermissionRequest& request) const;
+    PermissionMode mode() const;
+    void setMode(PermissionMode mode);
 
 private:
+    mutable std::mutex mutex_;
     PermissionMode mode_ = PermissionMode::AskEachTime;
     PermissionPrompt prompt_;
 };
