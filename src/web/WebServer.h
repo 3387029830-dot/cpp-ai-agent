@@ -27,6 +27,7 @@ public:
 
     void setChatHandler(ChatHandler handler);
     void setSettingsHandler(SettingsHandler handler);
+    void setHistoryDir(std::string dir);
     void setStatusPayload(nlohmann::json payload);
     void pushEvent(std::string type, std::string title, std::string detail, nlohmann::json data = nlohmann::json::object());
     void setBusy(bool busy);
@@ -50,6 +51,7 @@ private:
 
     std::string webRoot_;
     std::string workspaceRoot_;
+    std::string historyDir_;
     ChatHandler chatHandler_;
     SettingsHandler settingsHandler_;
     nlohmann::json statusPayload_ = nlohmann::json::object();

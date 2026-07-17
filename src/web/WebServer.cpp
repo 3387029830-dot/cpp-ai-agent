@@ -1,4 +1,5 @@
 #include "web/WebServer.h"
+#include "storage/HistoryReader.h"
 
 #include <algorithm>
 #include <array>
@@ -16,6 +17,19 @@
 #ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
+using SocketHandle = SOCKET;
+constexpr SocketHandle INVALID_SOCK = INVALID_SOCKET;
+#define SOCKET_ERR SOCKET_ERROR
+#define CLOSE_SOCK closesocket
+#else
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+using SocketHandle = int;
+constexpr SocketHandle INVALID_SOCK = -1;
+#define SOCKET_ERR (-1)
+#define CLOSE_SOCK close
 #endif
 
 namespace cpp_ai_agent::web {
@@ -150,8 +164,7 @@ std::string safeFileName(std::string value) {
 }
 
 void sendAll(std::uintptr_t rawSocket, const std::string& data) {
-#ifdef _WIN32
-    const auto socket = static_cast<SOCKET>(rawSocket);
+    const auto socket = static_cast<SocketHandle>(rawSocket);
     const char* ptr = data.data();
     int remaining = static_cast<int>(data.size());
     while (remaining > 0) {
@@ -162,16 +175,16 @@ void sendAll(std::uintptr_t rawSocket, const std::string& data) {
         ptr += sent;
         remaining -= sent;
     }
-#else
-    (void)rawSocket;
-    (void)data;
-#endif
 }
 
 }  // namespace
 
 WebServer::WebServer(std::string webRoot, std::string workspaceRoot)
     : webRoot_(std::move(webRoot)), workspaceRoot_(std::move(workspaceRoot)) {}
+
+void WebServer::setHistoryDir(std::string dir) {
+    historyDir_ = std::move(dir);
+}
 
 void WebServer::setChatHandler(ChatHandler handler) {
     chatHandler_ = std::move(handler);
@@ -325,11 +338,11 @@ std::string WebServer::uploadFile(const nlohmann::json& body) {
 }
 
 void WebServer::handleClient(std::uintptr_t clientSocket) {
-#ifdef _WIN32
+    const SocketHandle sock = static_cast<SocketHandle>(clientSocket);
     std::string request;
     std::array<char, 4096> buffer{};
     int received = 0;
-    while ((received = recv(static_cast<SOCKET>(clientSocket), buffer.data(), static_cast<int>(buffer.size()), 0)) > 0) {
+    while ((received = recv(sock, buffer.data(), static_cast<int>(buffer.size()), 0)) > 0) {
         request.append(buffer.data(), static_cast<std::size_t>(received));
         const auto headerEnd = request.find("\r\n\r\n");
         if (headerEnd != std::string::npos) {
@@ -404,10 +417,27 @@ void WebServer::handleClient(std::uintptr_t clientSocket) {
         } else if (method == "POST" && path == "/api/upload") {
             const auto parsed = nlohmann::json::parse(body.empty() ? "{}" : body);
             sendAll(clientSocket, jsonResponse(uploadFile(parsed)));
+        } else if (method == "GET" && path == "/api/history") {
+            nlohmann::json list = nlohmann::json::array();
+            if (!historyDir_.empty()) {
+                try {
+                    for (const auto& entry : cpp_ai_agent::storage::listHistoryFiles(historyDir_)) {
+                        list.push_back({
+                            {"name", entry.path.filename().string()},
+                            {"size", entry.size},
+                            {"modified", entry.modifiedTime},
+                            {"title", entry.title},
+                        });
+                    }
+                } catch (const std::exception& ex) {
+                    list = nlohmann::json::array();
+                }
+            }
+            sendAll(clientSocket, jsonResponse(dumpJson(list)));
         } else if (method == "GET") {
             if (path.find("..") != std::string::npos || path.find('\\') != std::string::npos) {
                 sendAll(clientSocket, notFoundResponse());
-                closesocket(static_cast<SOCKET>(clientSocket));
+                CLOSE_SOCK(sock);
                 return;
             }
             auto filePath = path == "/" ? std::filesystem::path(webRoot_) / "index.html"
@@ -425,10 +455,7 @@ void WebServer::handleClient(std::uintptr_t clientSocket) {
         sendAll(clientSocket, badRequestResponse(ex.what()));
     }
 
-    closesocket(static_cast<SOCKET>(clientSocket));
-#else
-    (void)clientSocket;
-#endif
+    CLOSE_SOCK(sock);
 }
 
 int WebServer::start(int port) {
@@ -437,30 +464,37 @@ int WebServer::start(int port) {
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
         throw std::runtime_error("WSAStartup failed");
     }
+#endif
 
-    SOCKET serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (serverSocket == INVALID_SOCKET) {
+    SocketHandle serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (serverSocket == INVALID_SOCK) {
+#ifdef _WIN32
         WSACleanup();
+#endif
         throw std::runtime_error("socket failed");
     }
 
     sockaddr_in address{};
     address.sin_family = AF_INET;
-    address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    address.sin_addr.s_addr = htonl(INADDR_ANY);
     address.sin_port = htons(static_cast<u_short>(port));
 
     int yes = 1;
     setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>(&yes), sizeof(yes));
 
-    if (bind(serverSocket, reinterpret_cast<sockaddr*>(&address), sizeof(address)) == SOCKET_ERROR) {
-        closesocket(serverSocket);
+    if (bind(serverSocket, reinterpret_cast<sockaddr*>(&address), sizeof(address)) == SOCKET_ERR) {
+        CLOSE_SOCK(serverSocket);
+#ifdef _WIN32
         WSACleanup();
+#endif
         throw std::runtime_error("bind failed; port may already be in use");
     }
 
-    if (listen(serverSocket, SOMAXCONN) == SOCKET_ERROR) {
-        closesocket(serverSocket);
+    if (listen(serverSocket, SOMAXCONN) == SOCKET_ERR) {
+        CLOSE_SOCK(serverSocket);
+#ifdef _WIN32
         WSACleanup();
+#endif
         throw std::runtime_error("listen failed");
     }
 
@@ -468,18 +502,14 @@ int WebServer::start(int port) {
     std::cout << "web> press Ctrl+C to stop\n";
 
     while (true) {
-        SOCKET client = accept(serverSocket, nullptr, nullptr);
-        if (client == INVALID_SOCKET) {
+        SocketHandle client = accept(serverSocket, nullptr, nullptr);
+        if (client == INVALID_SOCK) {
             continue;
         }
         std::thread([this, client] {
             handleClient(static_cast<std::uintptr_t>(client));
         }).detach();
     }
-#else
-    (void)port;
-    throw std::runtime_error("Web mode is currently implemented for Windows builds.");
-#endif
 }
 
 }  // namespace cpp_ai_agent::web

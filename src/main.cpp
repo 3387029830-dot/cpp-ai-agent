@@ -138,7 +138,6 @@ std::string convertToUtf8(const std::string& value, ConsoleEncoding encoding) {
     return cpp_ai_agent::utils::toUtf8(value, encoding.inputCodePage);
 }
 #else
-struct ConsoleEncoding {};
 
 std::vector<std::string> commandLineArgs(int argc, char* argv[]) {
     std::vector<std::string> args;
@@ -366,16 +365,20 @@ void registerBuiltInMcpTools(
     cpp_ai_agent::tools::ToolRegistry& tools,
     const std::string& executablePath
 ) {
-    const std::vector<std::string> command = {executablePath, "/mcp-test-server"};
-    cpp_ai_agent::mcp::StdioMcpClient client(command);
-    const auto info = client.discoverTools();
+    try {
+        const std::vector<std::string> command = {executablePath, "/mcp-test-server"};
+        cpp_ai_agent::mcp::StdioMcpClient client(command);
+        const auto info = client.discoverTools();
 
-    for (const auto& tool : info.tools) {
-        tools.registerTool(std::make_shared<cpp_ai_agent::mcp::McpToolAdapter>(
-            command,
-            "mcp_" + tool.name,
-            tool
-        ));
+        for (const auto& tool : info.tools) {
+            tools.registerTool(std::make_shared<cpp_ai_agent::mcp::McpToolAdapter>(
+                command,
+                "mcp_" + tool.name,
+                tool
+            ));
+        }
+    } catch (const std::exception& ex) {
+        std::cout << "mcp> built-in MCP tools skipped (not available on this platform)\n";
     }
 }
 
@@ -755,6 +758,7 @@ int main(int argc, char* argv[]) {
         std::unique_ptr<WebServer> webServer;
         if (webMode) {
             webServer = std::make_unique<WebServer>("web", appConfig.workspaceRoot);
+            webServer->setHistoryDir(appConfig.historyDir);
         }
 
         PermissionManager permissions(

@@ -30,11 +30,11 @@
         <div class="kv"><span>History</span><b id="history">logs</b></div>
       </section>
 
-      <section class="rail-block">
-        <div class="block-title">Quick Prompts</div>
-        <button class="prompt-chip">总结 README 和当前功能</button>
-        <button class="prompt-chip">列出 src 目录架构</button>
-        <button class="prompt-chip">演示一次安全写文件</button>
+      <section class="rail-block rail-sessions">
+        <div class="block-title">Sessions</div>
+        <div id="session-list" class="session-list">
+          <div class="session-empty">loading…</div>
+        </div>
       </section>
     </aside>
 
@@ -147,6 +147,8 @@
       </section>
     </aside>
   </main>
+
+  <div id="reconnect-banner" class="reconnect-banner hidden">Connection lost — reconnecting…</div>
 
   <div class="permission-modal" id="permission">
     <div class="permission-card">
