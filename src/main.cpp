@@ -53,6 +53,7 @@ struct ActiveModeState {
     std::string description;
     std::string target;
     std::string contractTemplate;
+    std::vector<cpp_ai_agent::modes::ContractField> contractSchema;
     std::string skillName;
     std::vector<std::string> allowedTools;
 };
@@ -347,6 +348,16 @@ void printModes(const cpp_ai_agent::modes::ModeCatalog& catalog) {
         std::cout << "  - " << mode.name << ": " << mode.description << "\n";
         if (!mode.contractTemplate.empty()) {
             std::cout << "    contract: " << mode.contractTemplate << "\n";
+        }
+        if (!mode.contractSchema.empty()) {
+            std::cout << "    fields: ";
+            for (std::size_t i = 0; i < mode.contractSchema.size(); ++i) {
+                if (i > 0) {
+                    std::cout << ", ";
+                }
+                std::cout << mode.contractSchema.at(i).label;
+            }
+            std::cout << "\n";
         }
         if (!mode.allowedTools.empty()) {
             std::cout << "    tools: ";
@@ -966,12 +977,21 @@ int main(int argc, char* argv[]) {
             }
 
             const auto modeToJson = [](const ModePreset& mode) {
+                nlohmann::json contractSchema = nlohmann::json::array();
+                for (const auto& field : mode.contractSchema) {
+                    contractSchema.push_back({
+                        {"key", field.key},
+                        {"label", field.label},
+                        {"placeholder", field.placeholder},
+                    });
+                }
                 return nlohmann::json({
                     {"name", mode.name},
                     {"kind", cpp_ai_agent::modes::modeKindToString(mode.kind)},
                     {"description", mode.description},
                     {"suggested_prompt", mode.suggestedPrompt},
                     {"contract_template", mode.contractTemplate},
+                    {"contract_schema", contractSchema},
                     {"skill", mode.skillName},
                     {"tools", mode.allowedTools},
                 });
@@ -991,12 +1011,21 @@ int main(int argc, char* argv[]) {
                 if (!state.has_value()) {
                     return nlohmann::json(nullptr);
                 }
+                nlohmann::json contractSchema = nlohmann::json::array();
+                for (const auto& field : state->contractSchema) {
+                    contractSchema.push_back({
+                        {"key", field.key},
+                        {"label", field.label},
+                        {"placeholder", field.placeholder},
+                    });
+                }
                 return nlohmann::json({
                     {"kind", state->kind},
                     {"name", state->name},
                     {"description", state->description},
                     {"target", state->target},
                     {"contract_template", state->contractTemplate},
+                    {"contract_schema", contractSchema},
                     {"skill", state->skillName},
                     {"tools", state->allowedTools},
                 });
@@ -1201,6 +1230,7 @@ int main(int argc, char* argv[]) {
                 mode->description,
                 target,
                 mode->contractTemplate,
+                mode->contractSchema,
                 "",
                 mode->allowedTools,
             };
@@ -1250,6 +1280,7 @@ int main(int argc, char* argv[]) {
                 mode->description,
                 target,
                 mode->contractTemplate,
+                mode->contractSchema,
                 mode->skillName,
                 effectiveAllowedTools,
             };

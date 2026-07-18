@@ -44,6 +44,38 @@
       "suggested_prompt": "请先把需求收敛成任务合同：目标、范围内、范围外、成功标准、风险和下一步，再开始执行。",
       "system_prompt": "Operate as a boundary-contract workflow agent. Before execution, gather evidence from the repository and the request, define the goal, scope, non-goals, acceptance criteria, constraints, and escalation points. Ask clarifying questions when the contract is incomplete; do not start implementation until the contract is explicit. After execution, report whether the result stayed within contract and what remains outside scope.",
       "contract_template": "目标 / 范围内 / 范围外 / 成功标准 / 风险 / 下一步",
+      "contract_schema": [
+        {
+          "key": "goal",
+          "label": "目标",
+          "placeholder": "这次到底要解决什么问题？"
+        },
+        {
+          "key": "scope_in",
+          "label": "范围内",
+          "placeholder": "允许做哪些内容？"
+        },
+        {
+          "key": "scope_out",
+          "label": "范围外",
+          "placeholder": "明确哪些事情先不做。"
+        },
+        {
+          "key": "success",
+          "label": "成功标准",
+          "placeholder": "怎样才算任务完成？"
+        },
+        {
+          "key": "risk",
+          "label": "风险",
+          "placeholder": "最可能失控的点是什么？"
+        },
+        {
+          "key": "next_step",
+          "label": "下一步",
+          "placeholder": "确认边界后先做哪一步？"
+        }
+      ],
       "allowed_tools": [
         "read_file",
         "list_dir",

@@ -11,6 +11,12 @@ enum class ModeKind {
     Expert,
 };
 
+struct ContractField {
+    std::string key;
+    std::string label;
+    std::string placeholder;
+};
+
 struct ModePreset {
     ModeKind kind = ModeKind::Workflow;
     std::string name;
@@ -18,6 +24,7 @@ struct ModePreset {
     std::string suggestedPrompt;
     std::string systemPrompt;
     std::string contractTemplate;
+    std::vector<ContractField> contractSchema;
     std::string skillName;
     std::vector<std::string> allowedTools;
 };

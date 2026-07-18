@@ -28,6 +28,15 @@ ModePreset parseModePreset(const nlohmann::json& raw, ModeKind kind) {
     mode.suggestedPrompt = raw.value("suggested_prompt", "");
     mode.systemPrompt = raw.value("system_prompt", "");
     mode.contractTemplate = raw.value("contract_template", "");
+    for (const auto& rawField : raw.value("contract_schema", nlohmann::json::array())) {
+        ContractField field;
+        field.key = rawField.value("key", "");
+        field.label = rawField.value("label", "");
+        field.placeholder = rawField.value("placeholder", "");
+        if (!field.key.empty() && !field.label.empty()) {
+            mode.contractSchema.push_back(std::move(field));
+        }
+    }
     mode.skillName = raw.value("skill", raw.value("skill_name", ""));
     for (const auto& rawTool : raw.value("allowed_tools", nlohmann::json::array())) {
         mode.allowedTools.push_back(rawTool.get<std::string>());
@@ -132,6 +141,16 @@ std::string makeModeSystemMessage(const ModePreset& mode, const std::string& tar
     }
     if (!mode.contractTemplate.empty()) {
         message += " Contract template: " + mode.contractTemplate;
+    }
+    if (!mode.contractSchema.empty()) {
+        message += " Contract fields: ";
+        for (std::size_t i = 0; i < mode.contractSchema.size(); ++i) {
+            if (i > 0) {
+                message += ", ";
+            }
+            message += mode.contractSchema.at(i).label;
+        }
+        message += ".";
     }
     if (mode.kind == ModeKind::Expert && !mode.skillName.empty()) {
         message += " Bundled skill: " + mode.skillName + ".";

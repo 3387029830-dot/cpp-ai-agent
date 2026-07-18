@@ -151,8 +151,21 @@
             <span>任务合同</span>
             <b id="active-contract">未定义</b>
           </div>
-          <div id="contract-parts" class="contract-parts"></div>
-          <p class="contract-hint">先确认边界，再执行。合同会随着工作流切换自动更新。</p>
+          <div class="contract-target">
+            <span>当前目标</span>
+            <b id="contract-target">未设置</b>
+          </div>
+          <div class="contract-progress"><span id="contract-progress-bar"></span></div>
+          <div id="contract-fields" class="contract-fields"></div>
+          <div class="contract-actions">
+            <button id="contract-adopt" class="ghost-button">采纳输入</button>
+            <button id="contract-fill" class="ghost-button">填入示例</button>
+            <button id="contract-lock" class="ghost-button">锁定</button>
+            <button id="contract-copy" class="ghost-button">复制</button>
+            <button id="contract-reset" class="ghost-button">清空</button>
+          </div>
+          <pre id="contract-summary" class="contract-summary"></pre>
+          <p class="contract-hint">先确认边界，再执行。合同会随着工作流切换自动更新，也可以直接编辑。</p>
         </div>
       </section>
 

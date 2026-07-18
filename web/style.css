@@ -442,6 +442,8 @@ h1 {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
+  display: grid;
+  gap: 12px;
 }
 
 .contract-panel-head {
@@ -463,21 +465,86 @@ h1 {
   line-height: 1.35;
 }
 
-.contract-parts {
+.contract-target {
+  display: grid;
+  gap: 6px;
+}
+
+.contract-target span {
+  color: var(--quiet);
+  font-size: 12px;
+}
+
+.contract-target b {
+  color: var(--ink);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.contract-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.06);
+  overflow: hidden;
+}
+
+.contract-progress span {
+  display: block;
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), var(--blue));
+  transition: width .18s ease;
+}
+
+.contract-fields {
+  display: grid;
+  gap: 10px;
+}
+
+.contract-field {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255,255,255,.035);
+}
+
+.contract-field span {
+  color: var(--quiet);
+  font-size: 12px;
+}
+
+.contract-field textarea {
+  width: 100%;
+  min-height: 52px;
+  resize: vertical;
+  border: 1px solid rgba(255,255,255,.08);
+  background: rgba(8,9,10,.76);
+}
+
+.contract-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 12px;
 }
 
-.contract-chip {
-  padding: 7px 10px;
-  border-radius: 999px;
+.contract-actions .ghost-button {
+  min-width: 0;
+  padding: 6px 11px;
+}
+
+.contract-summary {
+  margin: 0;
+  padding: 12px;
+  border-radius: 8px;
   border: 1px solid var(--line);
-  background: rgba(255,255,255,.05);
+  background: rgba(0,0,0,.22);
   color: var(--ink);
-  font-size: 12px;
-  line-height: 1.3;
+  white-space: pre-wrap;
+  line-height: 1.55;
+  font: 12px/1.55 "Cascadia Code", "Fira Code", Consolas, monospace;
 }
 
 .contract-empty {
