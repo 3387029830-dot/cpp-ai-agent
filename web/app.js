@@ -24,6 +24,7 @@ const expertCards = document.getElementById("expert-cards");
 const runCards = document.getElementById("run-cards");
 const activeWorkflowText = document.getElementById("active-workflow");
 const activeContractText = document.getElementById("active-contract");
+const contractParts = document.getElementById("contract-parts");
 const activeExpertText = document.getElementById("active-expert");
 const activeSkillText = document.getElementById("active-skill");
 const clearModeButton = document.getElementById("clear-mode");
@@ -392,10 +393,35 @@ function hydrateStatus(status) {
   skillCount.textContent = String(statusCache.skills.length);
   toolCount.textContent = String(statusCache.tools.length);
   activeWorkflowText.textContent = status.active_workflow?.name || "基础";
-  activeContractText.textContent = status.active_workflow?.contract_template || "未定义";
   activeExpertText.textContent = status.active_expert?.name || "通用";
   activeSkillText.textContent = status.active_skill?.name || status.active_expert?.skill || "无";
+  renderContract(status.active_workflow?.contract_template || "");
   renderMainViews();
+}
+
+function renderContract(template) {
+  contractParts.innerHTML = "";
+  const parts = (template || "")
+    .split("/")
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  activeContractText.textContent = parts.length ? `${parts.length} 项约束` : "未定义";
+
+  if (parts.length === 0) {
+    const empty = document.createElement("span");
+    empty.className = "contract-empty";
+    empty.textContent = "选择一个工作流后，这里会展开合同骨架。";
+    contractParts.appendChild(empty);
+    return;
+  }
+
+  for (const part of parts) {
+    const chip = document.createElement("span");
+    chip.className = "contract-chip";
+    chip.textContent = part;
+    contractParts.appendChild(chip);
+  }
 }
 
 function handleEvent(event) {
