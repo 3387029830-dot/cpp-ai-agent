@@ -56,7 +56,7 @@ function inlineMd(text) {
 
 function codeBlockHtml(lang, code) {
   const langTag = lang ? `<span class="code-lang">${escHtml(lang)}</span>` : '';
-  const btn = '<button class="copy-btn" onclick="copyCode(this)">Copy</button>';
+  const btn = '<button class="copy-btn" onclick="copyCode(this)">复制</button>';
   return `<div class="code-block">${langTag}${btn}<pre><code>${escHtml(code)}</code></pre></div>`;
 }
 
@@ -139,8 +139,8 @@ window.copyCode = function(btn) {
   const block = btn.closest('.code-block');
   const code = block ? block.querySelector('code').textContent : '';
   navigator.clipboard.writeText(code).then(() => {
-    btn.textContent = 'Copied!';
-    setTimeout(() => { btn.textContent = 'Copy'; }, 1800);
+    btn.textContent = '已复制';
+    setTimeout(() => { btn.textContent = '复制'; }, 1800);
   }).catch(() => {});
 };
 
@@ -189,11 +189,11 @@ function resetTypeBuffer() {
 }
 
 const viewCopy = {
-  chat: ["local agent workspace", "Control Deck"],
-  tools: ["tool registry", "Tools"],
-  skills: ["skill catalog", "Skills"],
-  modes: ["direct prompt injection", "Modes"],
-  runs: ["demo command center", "Runs"],
+  chat: ["本地智能体工作区", "控制台"],
+  tools: ["工具注册表", "工具"],
+  skills: ["技能目录", "技能"],
+  modes: ["直接提示注入", "模式"],
+  runs: ["演示命令中心", "运行"],
 };
 
 const banner = document.getElementById("reconnect-banner");
@@ -225,20 +225,20 @@ function showWelcome() {
   card.className = "welcome-card";
   card.id = "welcome";
   card.innerHTML = `
-    <div class="welcome-mark">C</div>
-    <h2>cpp-ai-agent</h2>
-    <p>C++17 terminal AI coding agent 鈥?local tools, MCP, web search.</p>
+    <div class="welcome-mark">F</div>
+    <h2>FORGE-17</h2>
+    <p>面向答辩演示的 C++17 AI 编程智能体，支持本地工具、工作流模式、专家模式、MCP 和 Web 控制台。</p>
     <div class="welcome-chips">
-      <button>鎬荤粨 README 鍜屽綋鍓嶅姛鑳?/button>
-      <button>鍒楀嚭 src 鐩綍骞惰鏄庢灦鏋?/button>
-      <button>婕旂ず涓€娆″畨鍏ㄧ殑鏂囦欢鍐欏叆</button>
-      <button>鐢?Web Search 鎼滅储 MCP 鍗忚</button>
+      <button>总结 README 和核心功能</button>
+      <button>说明 src 架构</button>
+      <button>演示一次安全写文件</button>
+      <button>解释 MCP 和专家模式</button>
     </div>
   `;
   card.querySelector(".welcome-mark").textContent = "F";
   card.querySelector("h2").textContent = "FORGE-17";
-  card.querySelector("p").textContent = "C++17 AI coding agent with local tools, workflow modes, expert packs, MCP, and web control.";
-  ["Summarize README and core features", "Explain the src architecture", "Demo a safe file write", "Explain MCP and expert modes"].forEach((text, index) => {
+  card.querySelector("p").textContent = "面向答辩演示的 C++17 AI 编程智能体，支持本地工具、工作流模式、专家模式、MCP 和 Web 控制台。";
+  ["总结 README 和核心功能", "说明 src 架构", "演示一次安全写文件", "解释 MCP 和专家模式"].forEach((text, index) => {
     const button = card.querySelectorAll(".welcome-chips button")[index];
     if (button) button.textContent = text;
   });
@@ -264,7 +264,7 @@ async function loadHistory() {
     const list = await res.json();
     sessionList.innerHTML = "";
     if (!Array.isArray(list) || list.length === 0) {
-      sessionList.innerHTML = '<div class="session-empty">No sessions yet</div>';
+      sessionList.innerHTML = '<div class="session-empty">暂无会话</div>';
       return;
     }
     for (const s of list.slice(0, 20)) {
@@ -272,7 +272,7 @@ async function loadHistory() {
       item.className = "session-item";
       const title = s.title || s.name.replace(/^session-|\.jsonl$/g, "");
       const kb = s.size > 1024 ? (s.size / 1024).toFixed(1) + "KB" : s.size + "B";
-      item.innerHTML = `<b>${escHtml(title)}</b><span>${kb} 路 ${s.modified || ""}</span>`;
+      item.innerHTML = `<b>${escHtml(title)}</b><span>${kb} · ${s.modified || ""}</span>`;
       item.title = s.name;
       item.addEventListener("click", () => {
         input.value = `/load logs/${s.name}`;
@@ -282,7 +282,7 @@ async function loadHistory() {
       sessionList.appendChild(item);
     }
   } catch {
-    sessionList.innerHTML = '<div class="session-empty">unavailable</div>';
+    sessionList.innerHTML = '<div class="session-empty">不可用</div>';
   }
 }
 
@@ -292,7 +292,7 @@ function message(role, text) {
   row.className = `message ${role}`;
   const meta = document.createElement("div");
   meta.className = "message-meta";
-  meta.innerHTML = `<span>${role === "user" ? "you" : "assistant"}</span><span>${formatTime()}</span>`;
+  meta.innerHTML = `<span>${role === "user" ? "你" : "助手"}</span><span>${formatTime()}</span>`;
   const body = document.createElement("div");
   body.className = "message-body";
   body.innerHTML = text ? renderMarkdown(text) : "";
@@ -300,12 +300,12 @@ function message(role, text) {
   if (role === "assistant" && text) {
     const actions = document.createElement("div");
     actions.className = "msg-actions";
-    actions.innerHTML = '<button class="msg-act-btn" title="Copy message">Copy</button>';
+    actions.innerHTML = '<button class="msg-act-btn" title="复制消息">复制</button>';
     actions.querySelector("button").addEventListener("click", (e) => {
       e.stopPropagation();
       navigator.clipboard.writeText(text).then(() => {
-        actions.querySelector("button").textContent = "Copied!";
-        setTimeout(() => { actions.querySelector("button").textContent = "Copy"; }, 1500);
+        actions.querySelector("button").textContent = "已复制";
+        setTimeout(() => { actions.querySelector("button").textContent = "复制"; }, 1500);
       }).catch(() => {});
     });
     row.appendChild(actions);
@@ -335,7 +335,12 @@ function activity(type, title, detail) {
 }
 
 function setPermissionMode(mode) {
-  document.getElementById("permission-mode-label").textContent = mode.replace("_", " ");
+  const labels = {
+    ask_each_time: "每次询问",
+    read_only: "只读",
+    trust_session: "信任会话",
+  };
+  document.getElementById("permission-mode-label").textContent = labels[mode] || "每次询问";
   document.querySelectorAll("#permission-modes button").forEach((button) => {
     button.classList.toggle("active", button.dataset.mode === mode);
   });
@@ -349,9 +354,9 @@ function hydrateStatus(status) {
     experts: status.experts || [],
     commands: status.commands || [],
   };
-  document.getElementById("model").textContent = status.model || "model";
+  document.getElementById("model").textContent = status.model || "模型";
   document.getElementById("workspace").textContent = status.workspace || ".";
-  document.getElementById("history").textContent = status.history || "logs";
+  document.getElementById("history").textContent = status.history || "日志";
   setPermissionMode(status.permission_mode || "ask_each_time");
 
   const toolList = document.getElementById("tool-list");
@@ -365,7 +370,7 @@ function hydrateStatus(status) {
     const item = document.createElement("span");
     item.className = `pill ${tool.risk || "safe"}`;
     item.textContent = tool.name;
-    item.title = `${tool.risk || "safe"} 路 ${tool.description || ""}`;
+    item.title = `${tool.risk || "safe"} · ${tool.description || ""}`;
     toolList.appendChild(item);
   }
 
@@ -385,9 +390,9 @@ function hydrateStatus(status) {
 
   skillCount.textContent = String(statusCache.skills.length);
   toolCount.textContent = String(statusCache.tools.length);
-  activeWorkflowText.textContent = status.active_workflow?.name || "base";
-  activeExpertText.textContent = status.active_expert?.name || "general";
-  activeSkillText.textContent = status.active_skill?.name || status.active_expert?.skill || "none";
+  activeWorkflowText.textContent = status.active_workflow?.name || "基础";
+  activeExpertText.textContent = status.active_expert?.name || "通用";
+  activeSkillText.textContent = status.active_skill?.name || status.active_expert?.skill || "无";
   renderMainViews();
 }
 
@@ -442,27 +447,27 @@ function handleEvent(event) {
     const risk = event.data?.risk ? ` 路 ${event.data.risk}` : "";
     activity("tool", `${event.title}${risk}`, event.detail);
   } else if (event.type === "tool_result") {
-    activity("tool", `${event.title} result`, event.detail);
+    activity("tool", `${event.title} 结果`, event.detail);
   } else if (event.type === "warning") {
-    activity("warning", "warning", event.detail);
+    activity("warning", "警告", event.detail);
   } else if (event.type === "error") {
-    activity("error", "error", event.detail);
+    activity("error", "错误", event.detail);
   } else if (event.type === "permission") {
     const data = event.data || {};
     permTitle.textContent = `${data.tool || event.title} 路 ${data.risk || "unknown"}`;
     permPreview.textContent = data.preview || data.arguments || event.detail || "";
     permission.classList.add("visible");
-    activity("permission", "permission requested", permTitle.textContent);
+    activity("permission", "权限请求", permTitle.textContent);
   } else if (event.type === "permission_result") {
-    activity("permission", "permission result", event.detail);
+    activity("permission", "权限结果", event.detail);
   } else if (event.type === "upload") {
     uploadsSeen += 1;
     uploadCount.textContent = String(uploadsSeen);
-    activity("upload", `uploaded ${event.title}`, event.detail);
+    activity("upload", `已上传 ${event.title}`, event.detail);
   } else if (event.type === "settings") {
-    activity("settings", "settings", event.detail);
+    activity("settings", "设置", event.detail);
   } else if (event.type === "mode") {
-    activity("mode", event.title || "mode", event.detail);
+    activity("mode", event.title || "模式", event.detail);
   }
 }
 
@@ -482,14 +487,14 @@ function card(title, subtitle, detail, tone, action) {
 }
 
 function riskLabel(risk) {
-  if (risk === "dangerous") return "Dangerous command";
-  if (risk === "write") return "Write access";
-  return "Safe read";
+  if (risk === "dangerous") return "危险命令";
+  if (risk === "write") return "写入权限";
+  return "只读";
 }
 
 async function applyMode(kind, name = "") {
   const body = kind === "clear" ? { action: "clear" } : { kind, name };
-  sendHint.textContent = kind === "clear" ? "clearing mode" : `injecting ${name}`;
+  sendHint.textContent = kind === "clear" ? "正在清除模式" : `正在注入 ${name}`;
   const res = await fetch("/api/mode", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -497,7 +502,7 @@ async function applyMode(kind, name = "") {
   });
   const data = await res.json().catch(() => ({}));
   if (data.status) hydrateStatus(data.status);
-  sendHint.textContent = data.ok === false ? "mode rejected" : "mode injected";
+  sendHint.textContent = data.ok === false ? "模式注入失败" : "模式已注入";
   if (data.error) activity("error", "mode", data.error);
 }
 
@@ -525,8 +530,8 @@ function renderMainViews() {
     const allowed = (skill.tools || []).join(", ");
     skillCards.appendChild(card(
       skill.name,
-      "Skill preset",
-      `${skill.description || ""}${allowed ? ` Allowed tools: ${allowed}` : ""}`,
+      "技能预设",
+      `${skill.description || ""}${allowed ? ` · 工具：${allowed}` : ""}`,
       "skill",
       () => {
         input.value = `/use-skill ${skill.name}`;
@@ -539,8 +544,8 @@ function renderMainViews() {
     const allowed = (workflow.tools || []).join(", ");
     workflowCards.appendChild(card(
       workflow.name,
-      "Workflow mode",
-      `${workflow.description || ""}${allowed ? ` Tools: ${allowed}` : ""}`,
+      "工作流模式",
+      `${workflow.description || ""}${allowed ? ` · 工具：${allowed}` : ""}`,
       "workflow",
       () => applyMode("workflow", workflow.name),
     ));
@@ -549,7 +554,7 @@ function renderMainViews() {
   for (const expert of statusCache.experts) {
     expertCards.appendChild(card(
       expert.name,
-      expert.skill ? `Expert pack · ${expert.skill}` : "Expert pack",
+      expert.skill ? `专家包 · ${expert.skill}` : "专家包",
       expert.description || "",
       "expert",
       () => applyMode("expert", expert.name),
@@ -559,8 +564,8 @@ function renderMainViews() {
   for (const command of statusCache.commands) {
     runCards.appendChild(card(
       command,
-      "Command",
-      "Click to copy this command into the input box.",
+      "命令",
+      "点击后复制到输入框。",
       "command",
       () => {
         input.value = command
@@ -599,17 +604,17 @@ async function poll() {
     const res = await fetch(`/api/events?after=${lastEventId}`);
     const data = await res.json();
     updateConnection(true);
-    statusText.textContent = "connected";
+    statusText.textContent = "已连接";
     statusDot.style.background = "var(--ok)";
-    busyText.textContent = data.busy ? "busy" : "idle";
+    busyText.textContent = data.busy ? "忙碌" : "空闲";
 
     if (data.busy) {
-      send.textContent = "Stop";
+      send.textContent = "停止";
       send.classList.add("stop-btn");
       send.dataset.stopping = "true";
       send.disabled = false;
     } else {
-      send.textContent = "Run";
+      send.textContent = "发送";
       send.classList.remove("stop-btn");
       delete send.dataset.stopping;
       send.disabled = false;
@@ -618,7 +623,7 @@ async function poll() {
     for (const event of data.events || []) handleEvent(event);
   } catch {
     updateConnection(false);
-    statusText.textContent = "offline";
+    statusText.textContent = "离线";
     statusDot.style.background = "var(--danger)";
   } finally {
     setTimeout(poll, 100);
@@ -636,9 +641,9 @@ function showThinking() {
 
 async function sendMessage() {
   if (send.dataset.stopping === "true") {
-    send.textContent = "Run";
+    send.textContent = "发送";
     send.classList.remove("stop-btn");
-    sendHint.textContent = "stopped";
+    sendHint.textContent = "已停止";
     delete send.dataset.stopping;
     return;
   }
@@ -647,7 +652,7 @@ async function sendMessage() {
   input.value = "";
   autoSizeInput();
   send.disabled = true;
-  sendHint.textContent = "running";
+  sendHint.textContent = "正在运行";
   resetTypeBuffer();
   currentAssistant = null;
   hideWelcome();
@@ -657,7 +662,7 @@ async function sendMessage() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ content }),
   });
-  sendHint.textContent = res.ok ? "accepted" : "rejected";
+  sendHint.textContent = res.ok ? "已接受" : "已拒绝";
 }
 
 function autoSizeInput() {
@@ -696,7 +701,7 @@ async function uploadFiles(files) {
       body: JSON.stringify({ filename: file.name, content }),
     });
     if (!res.ok) {
-      activity("error", `upload failed ${file.name}`, await res.text());
+      activity("error", `上传失败 ${file.name}`, await res.text());
     }
   }
 }

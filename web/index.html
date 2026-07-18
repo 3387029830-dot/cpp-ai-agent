@@ -13,28 +13,28 @@
         <span class="brand-mark">F</span>
         <div>
           <b>FORGE-17</b>
-          <span id="model">loading</span>
+          <span id="model">加载中</span>
         </div>
       </div>
 
       <nav class="rail-nav" aria-label="views">
-        <button class="nav-item active" data-view="chat">Chat</button>
-        <button class="nav-item" data-view="tools">Tools</button>
-        <button class="nav-item" data-view="skills">Skills</button>
-        <button class="nav-item" data-view="modes">Modes</button>
-        <button class="nav-item" data-view="runs">Runs</button>
+        <button class="nav-item active" data-view="chat">聊天</button>
+        <button class="nav-item" data-view="tools">工具</button>
+        <button class="nav-item" data-view="skills">技能</button>
+        <button class="nav-item" data-view="modes">模式</button>
+        <button class="nav-item" data-view="runs">运行</button>
       </nav>
 
       <section class="rail-block">
-        <div class="block-title">Workspace</div>
-        <div class="kv"><span>Root</span><b id="workspace">.</b></div>
-        <div class="kv"><span>History</span><b id="history">logs</b></div>
+        <div class="block-title">工作区</div>
+        <div class="kv"><span>根目录</span><b id="workspace">.</b></div>
+        <div class="kv"><span>历史</span><b id="history">日志</b></div>
       </section>
 
       <section class="rail-block rail-sessions">
-        <div class="block-title">Sessions</div>
+        <div class="block-title">会话</div>
         <div id="session-list" class="session-list">
-          <div class="session-empty">loading…</div>
+          <div class="session-empty">加载中…</div>
         </div>
       </section>
     </aside>
@@ -42,12 +42,12 @@
     <section class="stage">
       <header class="commandbar">
         <div>
-          <span id="view-eyebrow" class="eyebrow">local agent workspace</span>
-          <h1 id="view-title">Control Deck</h1>
+          <span id="view-eyebrow" class="eyebrow">本地智能体工作区</span>
+          <h1 id="view-title">控制台</h1>
         </div>
         <div class="connection">
           <span id="status-dot"></span>
-          <span id="status-text">connecting</span>
+          <span id="status-text">连接中</span>
         </div>
       </header>
 
@@ -58,42 +58,42 @@
 
         <div id="tools-view" class="view-page">
           <div class="view-intro">
-            <span class="eyebrow">tool registry</span>
-            <h2>Tool Registry</h2>
-            <p>read, write, search, command, and MCP adapters</p>
+            <span class="eyebrow">工具注册表</span>
+            <h2>工具注册表</h2>
+            <p>读取、写入、搜索、命令执行和 MCP 适配器</p>
           </div>
           <div id="tool-cards" class="card-grid"></div>
         </div>
 
         <div id="skills-view" class="view-page">
           <div class="view-intro">
-            <span class="eyebrow">skill catalog</span>
-            <h2>Skill Catalog</h2>
-            <p>task presets with scoped tool access</p>
+            <span class="eyebrow">技能目录</span>
+            <h2>技能目录</h2>
+            <p>带工具范围约束的任务预设</p>
           </div>
           <div id="skill-cards" class="card-grid"></div>
         </div>
 
         <div id="modes-view" class="view-page">
           <div class="view-intro">
-            <span class="eyebrow">direct prompt injection</span>
-            <h2>Workflow & Expert Modes</h2>
-            <p>inject a structured workflow or a bundled domain expert without leaving the web console</p>
+            <span class="eyebrow">直接提示注入</span>
+            <h2>工作流与专家模式</h2>
+            <p>无需离开控制台，就能注入结构化流程或打包好的领域专家</p>
           </div>
           <div class="mode-banner">
             <span>Mode injection writes system instructions into the live session and narrows tool access when the preset defines a scope.</span>
           </div>
           <section class="mode-section">
             <div class="mode-section-head">
-              <span>Workflow modes</span>
-              <b>process rails</b>
+              <span>工作流模式</span>
+              <b>流程约束</b>
             </div>
             <div id="workflow-cards" class="card-grid"></div>
           </section>
           <section class="mode-section">
             <div class="mode-section-head">
-              <span>Expert modes</span>
-              <b>prompt + skill packs</b>
+              <span>专家模式</span>
+              <b>提示词 + 技能包</b>
             </div>
             <div id="expert-cards" class="card-grid"></div>
           </section>
@@ -101,9 +101,9 @@
 
         <div id="runs-view" class="view-page">
           <div class="view-intro">
-            <span class="eyebrow">demo commands</span>
-            <h2>Demo Runs</h2>
-            <p>presentation commands and repeatable checkpoints</p>
+            <span class="eyebrow">演示命令</span>
+            <h2>演示命令</h2>
+            <p>用于答辩演示的常用命令和可复现检查点</p>
           </div>
           <div id="run-cards" class="card-grid command-grid"></div>
         </div>
@@ -112,12 +112,12 @@
       <section class="composer">
         <div id="drop-zone" class="drop-zone">
           <input id="file-input" type="file" hidden multiple>
-          <button id="upload-btn" class="icon-button" title="Upload files">+</button>
-          <textarea id="input" rows="3" placeholder="Ask the agent to inspect, edit, search, test, or explain the project."></textarea>
-          <button id="send" class="send-button">Run</button>
+          <button id="upload-btn" class="icon-button" title="上传文件">+</button>
+          <textarea id="input" rows="3" placeholder="让智能体检查、编辑、搜索、测试或解释项目。"></textarea>
+          <button id="send" class="send-button">发送</button>
         </div>
         <div class="composer-meta">
-          <span id="send-hint">ready</span>
+          <span id="send-hint">准备就绪</span>
           <span id="event-count">0 events</span>
         </div>
       </section>
@@ -126,76 +126,76 @@
     <aside class="inspector">
       <section class="panel status-panel">
         <div class="panel-head">
-          <span>Status</span>
-          <b id="busy">idle</b>
+          <span>状态</span>
+          <b id="busy">空闲</b>
         </div>
         <div class="metric-row">
-          <div><b id="tool-count">0</b><span>tools</span></div>
-          <div><b id="skill-count">0</b><span>skills</span></div>
-          <div><b id="upload-count">0</b><span>uploads</span></div>
+          <div><b id="tool-count">0</b><span>工具</span></div>
+          <div><b id="skill-count">0</b><span>技能</span></div>
+          <div><b id="upload-count">0</b><span>上传</span></div>
         </div>
       </section>
 
       <section class="panel">
         <div class="panel-head">
-          <span>Mode Injection</span>
-          <button id="clear-mode" class="ghost-button">Clear</button>
+          <span>模式注入</span>
+          <button id="clear-mode" class="ghost-button">清除</button>
         </div>
         <div class="mode-status">
-          <div><span>Workflow</span><b id="active-workflow">base</b></div>
-          <div><span>Expert</span><b id="active-expert">general</b></div>
-          <div><span>Skill</span><b id="active-skill">none</b></div>
+          <div><span>工作流</span><b id="active-workflow">基础</b></div>
+          <div><span>专家</span><b id="active-expert">通用</b></div>
+          <div><span>技能</span><b id="active-skill">无</b></div>
         </div>
       </section>
 
       <section class="panel">
         <div class="panel-head">
-          <span>Permission</span>
-          <b id="permission-mode-label">ask</b>
+          <span>权限</span>
+          <b id="permission-mode-label">每次询问</b>
         </div>
         <div class="segmented" id="permission-modes">
-          <button data-mode="ask_each_time" class="active">Ask</button>
-          <button data-mode="read_only">Read</button>
-          <button data-mode="trust_session">Trust</button>
+          <button data-mode="ask_each_time" class="active">询问</button>
+          <button data-mode="read_only">只读</button>
+          <button data-mode="trust_session">信任</button>
         </div>
       </section>
 
       <section class="panel tabs">
         <div class="tabbar">
-          <button class="tab active" data-tab="activity">Activity</button>
-          <button class="tab" data-tab="capability">Capability</button>
+          <button class="tab active" data-tab="activity">活动</button>
+          <button class="tab" data-tab="capability">能力</button>
         </div>
         <div id="activity" class="tab-page active">
-          <p class="activity-note">Runtime trace: tools, permissions, uploads, settings, warnings.</p>
+          <p class="activity-note">运行轨迹：工具、权限、上传、设置和警告。</p>
           <div id="tools" class="timeline">
             <div class="empty-state" data-empty="activity">
-              <b>Ready</b>
-              <span>Execution events will appear here.</span>
+              <b>就绪</b>
+              <span>执行事件会显示在这里。</span>
             </div>
           </div>
         </div>
         <div id="capability" class="tab-page">
-          <div class="mini-title">Tools</div>
+          <div class="mini-title">工具</div>
           <div id="tool-list" class="pill-list"></div>
-          <div class="mini-title">Skills</div>
+          <div class="mini-title">技能</div>
           <div id="skill-list" class="pill-list"></div>
-          <div class="mini-title">Commands</div>
+          <div class="mini-title">命令</div>
           <div id="command-list" class="command-list"></div>
         </div>
       </section>
     </aside>
   </main>
 
-  <div id="reconnect-banner" class="reconnect-banner hidden">Connection lost — reconnecting…</div>
+  <div id="reconnect-banner" class="reconnect-banner hidden">连接已断开，正在重连…</div>
 
   <div class="permission-modal" id="permission">
     <div class="permission-card">
-      <span class="eyebrow">permission gate</span>
-      <h2 id="perm-title">Tool request</h2>
+      <span class="eyebrow">权限确认</span>
+      <h2 id="perm-title">工具请求</h2>
       <pre id="perm-preview"></pre>
       <div class="modal-actions">
-        <button id="deny" class="danger">Deny</button>
-        <button id="approve">Approve</button>
+        <button id="deny" class="danger">拒绝</button>
+        <button id="approve">允许</button>
       </div>
     </div>
   </div>
