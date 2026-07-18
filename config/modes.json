@@ -39,6 +39,17 @@
       ]
     },
     {
+      "name": "boundary-contract",
+      "description": "Turn a vague request into an explicit task contract with scope, non-goals, and acceptance criteria.",
+      "suggested_prompt": "请先把需求收敛成任务合同：目标、范围内、范围外、成功标准、风险和下一步，再开始执行。",
+      "system_prompt": "Operate as a boundary-contract workflow agent. Before execution, gather evidence from the repository and the request, define the goal, scope, non-goals, acceptance criteria, constraints, and escalation points. Ask clarifying questions when the contract is incomplete; do not start implementation until the contract is explicit. After execution, report whether the result stayed within contract and what remains outside scope.",
+      "allowed_tools": [
+        "read_file",
+        "list_dir",
+        "run_command"
+      ]
+    },
+    {
       "name": "defense-qa-brief",
       "description": "Turn project facts into defense-ready claims, evidence, demo steps, and Q&A fallback.",
       "suggested_prompt": "请把当前项目整理成答辩可直接使用的四块：结论、证据、演示动作和评委追问应对。",
