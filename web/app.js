@@ -23,16 +23,6 @@ const workflowCards = document.getElementById("workflow-cards");
 const expertCards = document.getElementById("expert-cards");
 const runCards = document.getElementById("run-cards");
 const activeWorkflowText = document.getElementById("active-workflow");
-const activeContractText = document.getElementById("active-contract");
-const contractTargetText = document.getElementById("contract-target");
-const contractFields = document.getElementById("contract-fields");
-const contractProgressBar = document.getElementById("contract-progress-bar");
-const contractSummary = document.getElementById("contract-summary");
-const contractAdopt = document.getElementById("contract-adopt");
-const contractFill = document.getElementById("contract-fill");
-const contractLock = document.getElementById("contract-lock");
-const contractCopy = document.getElementById("contract-copy");
-const contractReset = document.getElementById("contract-reset");
 const activeExpertText = document.getElementById("active-expert");
 const activeSkillText = document.getElementById("active-skill");
 const clearModeButton = document.getElementById("clear-mode");
@@ -45,11 +35,6 @@ let thinkingIndicator = null;
 const seenEventIds = new Set();
 let currentView = "chat";
 let statusCache = { tools: [], skills: [], workflows: [], experts: [], commands: [] };
-const CONTRACT_STORAGE_KEY = "forge17.contract-drafts.v3";
-let contractDrafts = loadContractDrafts();
-let activeContractWorkflow = "";
-let contractSchema = [];
-let contractDraft = null;
 
 /* 鈹€鈹€ typewriter buffer for smooth streaming 鈹€鈹€ */
 let typeBuffer = "";
@@ -361,235 +346,6 @@ function setPermissionMode(mode) {
   });
 }
 
-function loadContractDrafts() {
-  try {
-    const raw = localStorage.getItem(CONTRACT_STORAGE_KEY);
-    const parsed = raw ? JSON.parse(raw) : {};
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
-function saveContractDrafts() {
-  try {
-    localStorage.setItem(CONTRACT_STORAGE_KEY, JSON.stringify(contractDrafts));
-  } catch {
-    // Ignore storage failures.
-  }
-}
-
-function cloneContractDraft(draft) {
-  return {
-    target: draft?.target || "",
-    goal: draft?.goal || "",
-    scope_in: draft?.scope_in || "",
-    scope_out: draft?.scope_out || "",
-    success: draft?.success || "",
-    risk: draft?.risk || "",
-    next_step: draft?.next_step || "",
-    locked: Boolean(draft?.locked),
-  };
-}
-
-function defaultContractDraft(workflow) {
-  const target = workflow?.target || input.value.trim();
-  return {
-    target,
-    goal: target || "请先把当前需求收敛成可执行目标。",
-    scope_in: "围绕当前目标做分析、收敛和方案输出。",
-    scope_out: "不扩展到无关功能、长期规划或不必要重构。",
-    success: "给出清晰结论、边界和可执行下一步。",
-    risk: "最容易失控的是范围膨胀或需求不清。",
-    next_step: "先确认边界，再开始执行。",
-    locked: false,
-  };
-}
-
-function getWorkflowSchema(workflow) {
-  return Array.isArray(workflow?.contract_schema) ? workflow.contract_schema : [];
-}
-
-function contractFieldValue(draft, key) {
-  return draft?.[key] || "";
-}
-
-function buildContractSummary(draft) {
-  return [
-    `当前目标: ${draft.target || "未设置"}`,
-    `目标: ${draft.goal || "未填写"}`,
-    `范围内: ${draft.scope_in || "未填写"}`,
-    `范围外: ${draft.scope_out || "未填写"}`,
-    `成功标准: ${draft.success || "未填写"}`,
-    `风险: ${draft.risk || "未填写"}`,
-    `下一步: ${draft.next_step || "未填写"}`,
-  ].join("\n");
-}
-
-function buildInjectedContractMessage(content) {
-  if (activeContractWorkflow !== "boundary-contract" || !contractDraft || !contractSchema.length) {
-    return content;
-  }
-
-  const contractBlock = [
-    "任务合同",
-    buildContractSummary(contractDraft),
-    "",
-    "用户当前问题",
-    content,
-  ].join("\n");
-  return contractBlock;
-}
-
-function updateContractStatus() {
-  const schema = contractSchema || [];
-  contractTargetText.textContent = contractDraft?.target || "未设置";
-  if (!schema.length) {
-    activeContractText.textContent = "未定义";
-    contractProgressBar.style.width = "0%";
-    contractSummary.textContent = "切换到 boundary-contract 后会出现可编辑任务合同。";
-    contractAdopt.disabled = true;
-    contractFill.disabled = true;
-    contractLock.disabled = true;
-    contractCopy.disabled = true;
-    contractReset.disabled = true;
-    return;
-  }
-
-  contractAdopt.disabled = false;
-  contractFill.disabled = false;
-  contractLock.disabled = false;
-  contractCopy.disabled = false;
-  contractReset.disabled = false;
-  const filled = schema.filter((field) => String(contractFieldValue(contractDraft, field.key)).trim().length > 0).length;
-  activeContractText.textContent = `${filled}/${schema.length} 已填`;
-  contractProgressBar.style.width = `${Math.round((filled / schema.length) * 100)}%`;
-  contractSummary.textContent = buildContractSummary(contractDraft);
-  contractLock.textContent = contractDraft?.locked ? "解锁" : "锁定";
-}
-
-function persistContractDraft() {
-  if (!activeContractWorkflow) {
-    return;
-  }
-  contractDrafts[activeContractWorkflow] = cloneContractDraft(contractDraft);
-  saveContractDrafts();
-}
-
-function setContractDraft(nextDraft) {
-  contractDraft = cloneContractDraft(nextDraft);
-  updateContractStatus();
-  persistContractDraft();
-}
-
-function seedContractDraft(workflow) {
-  const schema = getWorkflowSchema(workflow);
-  contractSchema = schema;
-  activeContractWorkflow = workflow?.name || "";
-
-  if (!schema.length) {
-    contractDraft = null;
-    updateContractStatus();
-    return;
-  }
-
-  const stored = contractDrafts[activeContractWorkflow];
-  const nextDraft = stored ? cloneContractDraft(stored) : defaultContractDraft(workflow);
-  if (!nextDraft.target && workflow?.target) {
-    nextDraft.target = workflow.target;
-  }
-  if (!nextDraft.goal && nextDraft.target) {
-    nextDraft.goal = nextDraft.target;
-  }
-  contractDraft = nextDraft;
-  renderContractEditor();
-  updateContractStatus();
-}
-
-function renderContractEditor() {
-  contractFields.innerHTML = "";
-
-  if (!contractSchema.length) {
-    contractFields.innerHTML = '<div class="contract-empty">选择 boundary-contract 后，这里会出现可编辑合同。</div>';
-    return;
-  }
-
-  for (const field of contractSchema) {
-    const wrapper = document.createElement("label");
-    wrapper.className = "contract-field";
-    wrapper.innerHTML = `<span>${field.label}</span><textarea rows="2" placeholder="${field.placeholder || ""}"></textarea>`;
-    const textarea = wrapper.querySelector("textarea");
-    textarea.value = contractFieldValue(contractDraft, field.key);
-    textarea.disabled = Boolean(contractDraft?.locked);
-    textarea.addEventListener("input", () => {
-      contractDraft[field.key] = textarea.value;
-      if (field.key === "target" && !contractDraft.goal) {
-        contractDraft.goal = textarea.value;
-        const goalField = contractFields.querySelector('textarea[data-contract-key="goal"]');
-        if (goalField) {
-          goalField.value = textarea.value;
-        }
-      }
-      updateContractStatus();
-      persistContractDraft();
-    });
-    textarea.dataset.contractKey = field.key;
-    wrapper.appendChild(textarea);
-    contractFields.appendChild(wrapper);
-  }
-}
-
-function fillContractFromInput() {
-  if (!contractDraft) {
-    return;
-  }
-  const value = input.value.trim();
-  if (value) {
-    contractDraft.target = value;
-    contractDraft.goal = value;
-    contractDraft.scope_in = contractDraft.scope_in || "围绕当前目标展开分析和执行。";
-  }
-  renderContractEditor();
-  updateContractStatus();
-  persistContractDraft();
-}
-
-function resetContractDraft() {
-  if (!activeContractWorkflow) {
-    return;
-  }
-  const workflow = statusCache.workflows.find((item) => item.name === activeContractWorkflow) ||
-    statusCache.experts.find((item) => item.name === activeContractWorkflow);
-  const nextDraft = defaultContractDraft(workflow || {});
-  if (workflow?.target) {
-    nextDraft.target = workflow.target;
-    nextDraft.goal = workflow.target;
-  }
-  setContractDraft(nextDraft);
-  renderContractEditor();
-}
-
-function toggleContractLock() {
-  if (!contractDraft) {
-    return;
-  }
-  contractDraft.locked = !contractDraft.locked;
-  renderContractEditor();
-  updateContractStatus();
-  persistContractDraft();
-}
-
-async function copyContractSummary() {
-  if (!contractDraft) {
-    return;
-  }
-  await navigator.clipboard.writeText(buildContractSummary(contractDraft));
-  contractCopy.textContent = "已复制";
-  setTimeout(() => {
-    contractCopy.textContent = "复制";
-  }, 1500);
-}
-
 function hydrateStatus(status) {
   statusCache = {
     tools: status.tools || [],
@@ -637,7 +393,6 @@ function hydrateStatus(status) {
   activeWorkflowText.textContent = status.active_workflow?.name || "基础";
   activeExpertText.textContent = status.active_expert?.name || "通用";
   activeSkillText.textContent = status.active_skill?.name || status.active_expert?.skill || "无";
-  seedContractDraft(status.active_workflow || {});
   renderMainViews();
 }
 
@@ -790,13 +545,10 @@ function renderMainViews() {
 
   for (const workflow of statusCache.workflows) {
     const allowed = (workflow.tools || []).join(", ");
-    const contract = workflow.contract_schema?.length
-      ? `${workflow.contract_schema.length} 项合同`
-      : (workflow.contract_template || "");
     workflowCards.appendChild(card(
       workflow.name,
       "工作流模式",
-      `${workflow.description || ""}${contract ? ` · 合同：${contract}` : ""}${allowed ? ` · 工具：${allowed}` : ""}`,
+      `${workflow.description || ""}${allowed ? ` · 工具：${allowed}` : ""}`,
       "workflow",
       () => applyMode("workflow", workflow.name, input.value.trim()),
     ));
@@ -900,7 +652,6 @@ async function sendMessage() {
   }
   const content = input.value.trim();
   if (!content) return;
-  const payloadContent = buildInjectedContractMessage(content);
   input.value = "";
   autoSizeInput();
   send.disabled = true;
@@ -912,7 +663,7 @@ async function sendMessage() {
   const res = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content: payloadContent }),
+    body: JSON.stringify({ content }),
   });
   sendHint.textContent = res.ok ? "已接受" : "已拒绝";
 }
@@ -970,20 +721,6 @@ input.addEventListener("input", autoSizeInput);
 document.getElementById("approve").addEventListener("click", () => approve(true));
 document.getElementById("deny").addEventListener("click", () => approve(false));
 document.getElementById("upload-btn").addEventListener("click", () => fileInput.click());
-contractAdopt.addEventListener("click", fillContractFromInput);
-contractFill.addEventListener("click", () => {
-  if (!contractDraft) return;
-  const target = contractDraft.target || input.value.trim();
-  setContractDraft({
-    ...defaultContractDraft({ target }),
-    target,
-    goal: target || "请先把当前需求收敛成可执行目标。",
-  });
-  renderContractEditor();
-});
-contractLock.addEventListener("click", toggleContractLock);
-contractCopy.addEventListener("click", () => copyContractSummary().catch(() => {}));
-contractReset.addEventListener("click", resetContractDraft);
 clearModeButton.addEventListener("click", () => applyMode("clear"));
 fileInput.addEventListener("change", () => uploadFiles(fileInput.files));
 
