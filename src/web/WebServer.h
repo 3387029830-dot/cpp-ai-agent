@@ -21,11 +21,13 @@ struct WebEvent {
 class WebServer {
 public:
     using ChatHandler = std::function<void(const std::string& content)>;
+    using ModeHandler = std::function<nlohmann::json(const nlohmann::json& body)>;
     using SettingsHandler = std::function<nlohmann::json(const nlohmann::json& body)>;
 
     WebServer(std::string webRoot, std::string workspaceRoot = ".");
 
     void setChatHandler(ChatHandler handler);
+    void setModeHandler(ModeHandler handler);
     void setSettingsHandler(SettingsHandler handler);
     void setHistoryDir(std::string dir);
     void setStatusPayload(nlohmann::json payload);
@@ -53,6 +55,7 @@ private:
     std::string workspaceRoot_;
     std::string historyDir_;
     ChatHandler chatHandler_;
+    ModeHandler modeHandler_;
     SettingsHandler settingsHandler_;
     nlohmann::json statusPayload_ = nlohmann::json::object();
 

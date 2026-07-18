@@ -1,4 +1,4 @@
-const chat = document.getElementById("chat");
+﻿const chat = document.getElementById("chat");
 const tools = document.getElementById("tools");
 const input = document.getElementById("input");
 const send = document.getElementById("send");
@@ -19,7 +19,13 @@ const viewTitle = document.getElementById("view-title");
 const viewEyebrow = document.getElementById("view-eyebrow");
 const toolCards = document.getElementById("tool-cards");
 const skillCards = document.getElementById("skill-cards");
+const workflowCards = document.getElementById("workflow-cards");
+const expertCards = document.getElementById("expert-cards");
 const runCards = document.getElementById("run-cards");
+const activeWorkflowText = document.getElementById("active-workflow");
+const activeExpertText = document.getElementById("active-expert");
+const activeSkillText = document.getElementById("active-skill");
+const clearModeButton = document.getElementById("clear-mode");
 
 let lastEventId = 0;
 let eventsSeen = 0;
@@ -28,15 +34,15 @@ let currentAssistant = null;
 let thinkingIndicator = null;
 const seenEventIds = new Set();
 let currentView = "chat";
-let statusCache = { tools: [], skills: [], commands: [] };
+let statusCache = { tools: [], skills: [], workflows: [], experts: [], commands: [] };
 
-/* ── typewriter buffer for smooth streaming ── */
+/* 鈹€鈹€ typewriter buffer for smooth streaming 鈹€鈹€ */
 let typeBuffer = "";
 let typeTimer = null;
 let streamText = "";
 const TYPE_SPEED = 18; // chars per frame (~60fps)
 
-/* ── markdown renderer ── */
+/* 鈹€鈹€ markdown renderer 鈹€鈹€ */
 function escHtml(text) {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
@@ -128,7 +134,7 @@ function renderMarkdown(text) {
   return html;
 }
 
-/* ── code copy ── */
+/* 鈹€鈹€ code copy 鈹€鈹€ */
 window.copyCode = function(btn) {
   const block = btn.closest('.code-block');
   const code = block ? block.querySelector('code').textContent : '';
@@ -186,6 +192,7 @@ const viewCopy = {
   chat: ["local agent workspace", "Control Deck"],
   tools: ["tool registry", "Tools"],
   skills: ["skill catalog", "Skills"],
+  modes: ["direct prompt injection", "Modes"],
   runs: ["demo command center", "Runs"],
 };
 
@@ -212,7 +219,7 @@ function updateConnection(ok) {
   }
 }
 
-/* ── welcome screen ── */
+/* 鈹€鈹€ welcome screen 鈹€鈹€ */
 function showWelcome() {
   const card = document.createElement("div");
   card.className = "welcome-card";
@@ -220,14 +227,21 @@ function showWelcome() {
   card.innerHTML = `
     <div class="welcome-mark">C</div>
     <h2>cpp-ai-agent</h2>
-    <p>C++17 terminal AI coding agent — local tools, MCP, web search.</p>
+    <p>C++17 terminal AI coding agent 鈥?local tools, MCP, web search.</p>
     <div class="welcome-chips">
-      <button>总结 README 和当前功能</button>
-      <button>列出 src 目录并说明架构</button>
-      <button>演示一次安全的文件写入</button>
-      <button>用 Web Search 搜索 MCP 协议</button>
+      <button>鎬荤粨 README 鍜屽綋鍓嶅姛鑳?/button>
+      <button>鍒楀嚭 src 鐩綍骞惰鏄庢灦鏋?/button>
+      <button>婕旂ず涓€娆″畨鍏ㄧ殑鏂囦欢鍐欏叆</button>
+      <button>鐢?Web Search 鎼滅储 MCP 鍗忚</button>
     </div>
   `;
+  card.querySelector(".welcome-mark").textContent = "F";
+  card.querySelector("h2").textContent = "FORGE-17";
+  card.querySelector("p").textContent = "C++17 AI coding agent with local tools, workflow modes, expert packs, MCP, and web control.";
+  ["Summarize README and core features", "Explain the src architecture", "Demo a safe file write", "Explain MCP and expert modes"].forEach((text, index) => {
+    const button = card.querySelectorAll(".welcome-chips button")[index];
+    if (button) button.textContent = text;
+  });
   chat.appendChild(card);
   card.querySelectorAll("button").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -243,7 +257,7 @@ function hideWelcome() {
   if (w) w.remove();
 }
 
-/* ── history list ── */
+/* 鈹€鈹€ history list 鈹€鈹€ */
 async function loadHistory() {
   try {
     const res = await fetch("/api/history");
@@ -258,7 +272,7 @@ async function loadHistory() {
       item.className = "session-item";
       const title = s.title || s.name.replace(/^session-|\.jsonl$/g, "");
       const kb = s.size > 1024 ? (s.size / 1024).toFixed(1) + "KB" : s.size + "B";
-      item.innerHTML = `<b>${escHtml(title)}</b><span>${kb} · ${s.modified || ""}</span>`;
+      item.innerHTML = `<b>${escHtml(title)}</b><span>${kb} 路 ${s.modified || ""}</span>`;
       item.title = s.name;
       item.addEventListener("click", () => {
         input.value = `/load logs/${s.name}`;
@@ -331,6 +345,8 @@ function hydrateStatus(status) {
   statusCache = {
     tools: status.tools || [],
     skills: status.skills || [],
+    workflows: status.workflows || [],
+    experts: status.experts || [],
     commands: status.commands || [],
   };
   document.getElementById("model").textContent = status.model || "model";
@@ -349,7 +365,7 @@ function hydrateStatus(status) {
     const item = document.createElement("span");
     item.className = `pill ${tool.risk || "safe"}`;
     item.textContent = tool.name;
-    item.title = `${tool.risk || "safe"} · ${tool.description || ""}`;
+    item.title = `${tool.risk || "safe"} 路 ${tool.description || ""}`;
     toolList.appendChild(item);
   }
 
@@ -369,6 +385,9 @@ function hydrateStatus(status) {
 
   skillCount.textContent = String(statusCache.skills.length);
   toolCount.textContent = String(statusCache.tools.length);
+  activeWorkflowText.textContent = status.active_workflow?.name || "base";
+  activeExpertText.textContent = status.active_expert?.name || "general";
+  activeSkillText.textContent = status.active_skill?.name || status.active_expert?.skill || "none";
   renderMainViews();
 }
 
@@ -420,7 +439,7 @@ function handleEvent(event) {
       thinkingIndicator = null;
     }
   } else if (event.type === "tool_call") {
-    const risk = event.data?.risk ? ` · ${event.data.risk}` : "";
+    const risk = event.data?.risk ? ` 路 ${event.data.risk}` : "";
     activity("tool", `${event.title}${risk}`, event.detail);
   } else if (event.type === "tool_result") {
     activity("tool", `${event.title} result`, event.detail);
@@ -430,7 +449,7 @@ function handleEvent(event) {
     activity("error", "error", event.detail);
   } else if (event.type === "permission") {
     const data = event.data || {};
-    permTitle.textContent = `${data.tool || event.title} · ${data.risk || "unknown"}`;
+    permTitle.textContent = `${data.tool || event.title} 路 ${data.risk || "unknown"}`;
     permPreview.textContent = data.preview || data.arguments || event.detail || "";
     permission.classList.add("visible");
     activity("permission", "permission requested", permTitle.textContent);
@@ -442,6 +461,8 @@ function handleEvent(event) {
     activity("upload", `uploaded ${event.title}`, event.detail);
   } else if (event.type === "settings") {
     activity("settings", "settings", event.detail);
+  } else if (event.type === "mode") {
+    activity("mode", event.title || "mode", event.detail);
   }
 }
 
@@ -466,9 +487,25 @@ function riskLabel(risk) {
   return "Safe read";
 }
 
+async function applyMode(kind, name = "") {
+  const body = kind === "clear" ? { action: "clear" } : { kind, name };
+  sendHint.textContent = kind === "clear" ? "clearing mode" : `injecting ${name}`;
+  const res = await fetch("/api/mode", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (data.status) hydrateStatus(data.status);
+  sendHint.textContent = data.ok === false ? "mode rejected" : "mode injected";
+  if (data.error) activity("error", "mode", data.error);
+}
+
 function renderMainViews() {
   toolCards.innerHTML = "";
   skillCards.innerHTML = "";
+  workflowCards.innerHTML = "";
+  expertCards.innerHTML = "";
   runCards.innerHTML = "";
 
   for (const tool of statusCache.tools) {
@@ -498,6 +535,27 @@ function renderMainViews() {
     ));
   }
 
+  for (const workflow of statusCache.workflows) {
+    const allowed = (workflow.tools || []).join(", ");
+    workflowCards.appendChild(card(
+      workflow.name,
+      "Workflow mode",
+      `${workflow.description || ""}${allowed ? ` Tools: ${allowed}` : ""}`,
+      "workflow",
+      () => applyMode("workflow", workflow.name),
+    ));
+  }
+
+  for (const expert of statusCache.experts) {
+    expertCards.appendChild(card(
+      expert.name,
+      expert.skill ? `Expert pack · ${expert.skill}` : "Expert pack",
+      expert.description || "",
+      "expert",
+      () => applyMode("expert", expert.name),
+    ));
+  }
+
   for (const command of statusCache.commands) {
     runCards.appendChild(card(
       command,
@@ -505,13 +563,15 @@ function renderMainViews() {
       "Click to copy this command into the input box.",
       "command",
       () => {
-        input.value = command.replace(" <query>", " MCP 是什么").replace(" <log.jsonl>", "");
+        input.value = command
+          .replace(" <query>", " MCP 是什么")
+          .replace(" <log.jsonl>", "")
+          .replace(" <name> [target]", "");
         input.focus();
       },
     ));
   }
 }
-
 function switchView(view, updateHash = true) {
   if (!viewCopy[view]) view = "chat";
   currentView = view;
@@ -653,6 +713,7 @@ input.addEventListener("input", autoSizeInput);
 document.getElementById("approve").addEventListener("click", () => approve(true));
 document.getElementById("deny").addEventListener("click", () => approve(false));
 document.getElementById("upload-btn").addEventListener("click", () => fileInput.click());
+clearModeButton.addEventListener("click", () => applyMode("clear"));
 fileInput.addEventListener("change", () => uploadFiles(fileInput.files));
 
 dropZone.addEventListener("dragover", (event) => {
@@ -697,3 +758,4 @@ switchView(window.location.hash.slice(1) || "chat", false);
 refreshStatus().catch(() => {});
 loadHistory().catch(() => {});
 poll();
+

@@ -34,6 +34,7 @@ add_executable(ai-agent
     src/llm/LlmParsing.cpp
     src/mcp/McpClient.cpp
     src/mcp/McpToolAdapter.cpp
+    src/modes/ModeCatalog.cpp
     src/security/PermissionManager.cpp
     src/skills/SkillCatalog.cpp
     src/storage/HistoryReader.cpp
@@ -82,6 +83,7 @@ add_executable(ai-agent-tests
     src/llm/LlmParsing.cpp
     src/mcp/McpClient.cpp
     src/mcp/McpToolAdapter.cpp
+    src/modes/ModeCatalog.cpp
     src/security/PermissionManager.cpp
     src/skills/SkillCatalog.cpp
     src/storage/HistoryReader.cpp
@@ -100,6 +102,7 @@ add_executable(ai-agent-tests
     tests/history_tests.cpp
     tests/llm_parsing_tests.cpp
     tests/mcp_tests.cpp
+    tests/mode_catalog_tests.cpp
     tests/security_tests.cpp
     tests/skill_catalog_tests.cpp
     tests/tools_tests.cpp

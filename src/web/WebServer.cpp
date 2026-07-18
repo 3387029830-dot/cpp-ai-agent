@@ -190,6 +190,10 @@ void WebServer::setChatHandler(ChatHandler handler) {
     chatHandler_ = std::move(handler);
 }
 
+void WebServer::setModeHandler(ModeHandler handler) {
+    modeHandler_ = std::move(handler);
+}
+
 void WebServer::setSettingsHandler(SettingsHandler handler) {
     settingsHandler_ = std::move(handler);
 }
@@ -413,6 +417,13 @@ void WebServer::handleClient(std::uintptr_t clientSocket) {
             } else {
                 const auto parsed = nlohmann::json::parse(body.empty() ? "{}" : body);
                 sendAll(clientSocket, jsonResponse(dumpJson(settingsHandler_(parsed))));
+            }
+        } else if (method == "POST" && path == "/api/mode") {
+            if (!modeHandler_) {
+                sendAll(clientSocket, badRequestResponse("mode handler is not configured"));
+            } else {
+                const auto parsed = nlohmann::json::parse(body.empty() ? "{}" : body);
+                sendAll(clientSocket, jsonResponse(dumpJson(modeHandler_(parsed))));
             }
         } else if (method == "POST" && path == "/api/upload") {
             const auto parsed = nlohmann::json::parse(body.empty() ? "{}" : body);

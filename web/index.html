@@ -3,16 +3,16 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>cpp-ai-agent Control Deck</title>
+  <title>FORGE-17 Control Deck</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
   <main class="deck">
     <aside class="rail">
       <div class="brand">
-        <span class="brand-mark">C</span>
+        <span class="brand-mark">F</span>
         <div>
-          <b>cpp-ai-agent</b>
+          <b>FORGE-17</b>
           <span id="model">loading</span>
         </div>
       </div>
@@ -21,6 +21,7 @@
         <button class="nav-item active" data-view="chat">Chat</button>
         <button class="nav-item" data-view="tools">Tools</button>
         <button class="nav-item" data-view="skills">Skills</button>
+        <button class="nav-item" data-view="modes">Modes</button>
         <button class="nav-item" data-view="runs">Runs</button>
       </nav>
 
@@ -73,6 +74,31 @@
           <div id="skill-cards" class="card-grid"></div>
         </div>
 
+        <div id="modes-view" class="view-page">
+          <div class="view-intro">
+            <span class="eyebrow">direct prompt injection</span>
+            <h2>Workflow & Expert Modes</h2>
+            <p>inject a structured workflow or a bundled domain expert without leaving the web console</p>
+          </div>
+          <div class="mode-banner">
+            <span>Mode injection writes system instructions into the live session and narrows tool access when the preset defines a scope.</span>
+          </div>
+          <section class="mode-section">
+            <div class="mode-section-head">
+              <span>Workflow modes</span>
+              <b>process rails</b>
+            </div>
+            <div id="workflow-cards" class="card-grid"></div>
+          </section>
+          <section class="mode-section">
+            <div class="mode-section-head">
+              <span>Expert modes</span>
+              <b>prompt + skill packs</b>
+            </div>
+            <div id="expert-cards" class="card-grid"></div>
+          </section>
+        </div>
+
         <div id="runs-view" class="view-page">
           <div class="view-intro">
             <span class="eyebrow">demo commands</span>
@@ -107,6 +133,18 @@
           <div><b id="tool-count">0</b><span>tools</span></div>
           <div><b id="skill-count">0</b><span>skills</span></div>
           <div><b id="upload-count">0</b><span>uploads</span></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <span>Mode Injection</span>
+          <button id="clear-mode" class="ghost-button">Clear</button>
+        </div>
+        <div class="mode-status">
+          <div><span>Workflow</span><b id="active-workflow">base</b></div>
+          <div><span>Expert</span><b id="active-expert">general</b></div>
+          <div><span>Skill</span><b id="active-skill">none</b></div>
         </div>
       </section>
 

@@ -249,13 +249,25 @@ deploy-linux:
     - if: $CI_COMMIT_BRANCH == "main"
   script:
     - echo "=== Packaging Linux release ==="
-    - cd build/linux-gcc-release
-    - tar -czf ai-agent-linux.tar.gz ai-agent 2>/dev/null || true
-    - ls -lh ai-agent-linux.tar.gz 2>/dev/null || echo "No binary to package"
-    - echo "=== Ansible deploy (stub) ==="
-    - ansible-playbook -i ansible/inventory.ini ansible/deploy.yml --extra-vars "version=${CI_COMMIT_SHORT_SHA}" 2>/dev/null || echo "Ansible deploy skipped (not configured)"
+    - bash scripts/package_linux.sh
+    - echo "=== Ansible deploy ==="
+    - ansible-playbook -i ansible/inventory.ini ansible/deploy.yml --extra-vars "version=${CI_COMMIT_SHORT_SHA}" 2>/dev/null || echo "Ansible: no target configured (add host to ansible/inventory.ini)"
+    - echo "=== Creating Release ==="
+    - PACKAGE=$(ls build-output/ai-agent-v*.tar.gz 2>/dev/null | head -1)
+    - echo "Package: ${PACKAGE}"
+    - |
+      curl -s --request POST \
+        --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+        --header "Content-Type: application/json" \
+        --data "{
+          \"tag_name\": \"v${CI_COMMIT_SHORT_SHA}\",
+          \"name\": \"Build ${CI_COMMIT_SHORT_SHA}\",
+          \"description\": \"Automated CI/CD build from branch main.\n\nLinux: download from Job artifacts.\nWindows: build locally with scripts/package_windows.bat\"
+        }" \
+        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/releases" || echo "Release: creation skipped (may need Maintainer permissions)"
   artifacts:
+    name: ai-agent-linux-${CI_COMMIT_SHORT_SHA}
     paths:
-      - build/linux-gcc-release/ai-agent-linux.tar.gz
+      - build-output/
     expire_in: 30 days
 

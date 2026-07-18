@@ -6,6 +6,7 @@
 #include "llm/LlmClient.h"
 #include "mcp/McpClient.h"
 #include "mcp/McpToolAdapter.h"
+#include "modes/ModeCatalog.h"
 #include "security/PermissionManager.h"
 #include "skills/SkillCatalog.h"
 #include "storage/HistoryReader.h"
@@ -29,6 +30,7 @@
 #include <memory>
 #include <mutex>
 #include <nlohmann/json.hpp>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -43,6 +45,15 @@ namespace {
 struct ConsoleEncoding {
     unsigned int inputCodePage = 0;
     bool stdinIsConsole = false;
+};
+
+struct ActiveModeState {
+    std::string kind;
+    std::string name;
+    std::string description;
+    std::string target;
+    std::string skillName;
+    std::vector<std::string> allowedTools;
 };
 
 cpp_ai_agent::core::Message makeMessage(cpp_ai_agent::core::Role role, std::string content) {
@@ -259,6 +270,12 @@ void printCommandPalette() {
     std::cout << "  /use-skill NAME [target]\n";
     std::cout << "                   Activate a Skill for this chat\n";
     std::cout << "  /clear-skill     Clear the active Skill\n";
+    std::cout << "  /modes           List workflow and expert modes\n";
+    std::cout << "  /use-workflow NAME [target]\n";
+    std::cout << "                   Inject a step-by-step workflow mode\n";
+    std::cout << "  /use-expert NAME [target]\n";
+    std::cout << "                   Inject an expert prompt bundled with a Skill\n";
+    std::cout << "  /clear-mode      Clear active workflow/expert mode gates\n";
     std::cout << "  /load [path]     Resume a previous JSONL session log\n";
     std::cout << "  /exit            Exit the chat\n\n";
 
@@ -275,6 +292,7 @@ void printCommandPalette() {
     std::cout << "  ai-agent.exe --ui web [port]\n";
     std::cout << "  ai-agent.exe /search <query>\n";
     std::cout << "  ai-agent.exe /skills\n";
+    std::cout << "  ai-agent.exe /modes\n";
     std::cout << "  ai-agent.exe /use-skill\n";
     std::cout << "  ai-agent.exe /mcp\n";
     std::cout << "  ai-agent.exe /mcp-demo\n";
@@ -317,6 +335,45 @@ void printSkills(const cpp_ai_agent::skills::SkillCatalog& catalog) {
         }
     }
     std::cout << "skills> use /use-skill <name> [target] in chat to activate one.\n";
+}
+
+void printModes(const cpp_ai_agent::modes::ModeCatalog& catalog) {
+    std::cout << "modes> workflow modes\n";
+    if (catalog.workflows().empty()) {
+        std::cout << "  (none)\n";
+    }
+    for (const auto& mode : catalog.workflows()) {
+        std::cout << "  - " << mode.name << ": " << mode.description << "\n";
+        if (!mode.allowedTools.empty()) {
+            std::cout << "    tools: ";
+            for (std::size_t i = 0; i < mode.allowedTools.size(); ++i) {
+                if (i > 0) {
+                    std::cout << ", ";
+                }
+                std::cout << mode.allowedTools.at(i);
+            }
+            std::cout << "\n";
+        }
+        if (!mode.suggestedPrompt.empty()) {
+            std::cout << "    prompt: " << mode.suggestedPrompt << "\n";
+        }
+    }
+
+    std::cout << "\nmodes> expert modes\n";
+    if (catalog.experts().empty()) {
+        std::cout << "  (none)\n";
+    }
+    for (const auto& mode : catalog.experts()) {
+        std::cout << "  - " << mode.name << ": " << mode.description << "\n";
+        if (!mode.skillName.empty()) {
+            std::cout << "    bundled skill: " << mode.skillName << "\n";
+        }
+        if (!mode.suggestedPrompt.empty()) {
+            std::cout << "    prompt: " << mode.suggestedPrompt << "\n";
+        }
+    }
+
+    std::cout << "\nmodes> use /use-workflow <name> [target] or /use-expert <name> [target].\n";
 }
 
 void printMcpServerInfo(const cpp_ai_agent::mcp::McpServerInfo& info) {
@@ -534,6 +591,9 @@ int main(int argc, char* argv[]) {
     using cpp_ai_agent::diagnostics::formatDiagnostics;
     using cpp_ai_agent::diagnostics::runLocalDiagnostics;
     using cpp_ai_agent::llm::LlmClient;
+    using cpp_ai_agent::modes::loadModeCatalog;
+    using cpp_ai_agent::modes::makeModeSystemMessage;
+    using cpp_ai_agent::modes::ModePreset;
     using cpp_ai_agent::security::PermissionManager;
     using cpp_ai_agent::security::PermissionRequest;
     using cpp_ai_agent::skills::loadSkillCatalog;
@@ -562,6 +622,7 @@ int main(int argc, char* argv[]) {
     try {
         const auto appConfig = loadAppConfig("config/settings.json");
         const auto skillCatalog = loadSkillCatalog("config/skills.json");
+        const auto modeCatalog = loadModeCatalog("config/modes.json");
 
         // When /load is used as a CLI argument, history is parsed here
         // and the messages are injected into the session below.
@@ -639,6 +700,11 @@ int main(int argc, char* argv[]) {
 
             if (command == "/skills") {
                 printSkills(skillCatalog);
+                return 0;
+            }
+
+            if (command == "/modes" || command == "/workflows" || command == "/experts") {
+                printModes(modeCatalog);
                 return 0;
             }
 
@@ -789,6 +855,8 @@ int main(int argc, char* argv[]) {
         std::string activeSkillName;
         std::string activeSkillTarget;
         std::vector<std::string> activeAllowedTools;
+        std::optional<ActiveModeState> activeWorkflow;
+        std::optional<ActiveModeState> activeExpert;
 
         cpp_ai_agent::agent::AgentLoop agentLoop(
             llm,
@@ -842,14 +910,22 @@ int main(int argc, char* argv[]) {
                 }
             },
             8000,
-            [&activeSkillName, &activeAllowedTools](const std::string& toolName) {
-                if (activeSkillName.empty() || activeAllowedTools.empty()) {
-                    return std::string();
+            [&activeSkillName, &activeAllowedTools, &activeWorkflow, &activeExpert](const std::string& toolName) {
+                const auto isAllowed = [&toolName](const std::vector<std::string>& allowedTools) {
+                    return allowedTools.empty() ||
+                           std::find(allowedTools.begin(), allowedTools.end(), toolName) != allowedTools.end();
+                };
+
+                if (!activeSkillName.empty() && !isAllowed(activeAllowedTools)) {
+                    return "Tool '" + toolName + "' is blocked by active skill '" + activeSkillName + "'.";
                 }
-                if (std::find(activeAllowedTools.begin(), activeAllowedTools.end(), toolName) != activeAllowedTools.end()) {
-                    return std::string();
+                if (activeWorkflow.has_value() && !isAllowed(activeWorkflow->allowedTools)) {
+                    return "Tool '" + toolName + "' is blocked by active workflow '" + activeWorkflow->name + "'.";
                 }
-                return "Tool '" + toolName + "' is blocked by active skill '" + activeSkillName + "'.";
+                if (activeExpert.has_value() && !isAllowed(activeExpert->allowedTools)) {
+                    return "Tool '" + toolName + "' is blocked by active expert '" + activeExpert->name + "'.";
+                }
+                return std::string();
             }
         );
 
@@ -885,6 +961,50 @@ int main(int argc, char* argv[]) {
                 });
             }
 
+            const auto modeToJson = [](const ModePreset& mode) {
+                return nlohmann::json({
+                    {"name", mode.name},
+                    {"kind", cpp_ai_agent::modes::modeKindToString(mode.kind)},
+                    {"description", mode.description},
+                    {"suggested_prompt", mode.suggestedPrompt},
+                    {"skill", mode.skillName},
+                    {"tools", mode.allowedTools},
+                });
+            };
+
+            nlohmann::json workflowItems = nlohmann::json::array();
+            for (const auto& mode : modeCatalog.workflows()) {
+                workflowItems.push_back(modeToJson(mode));
+            }
+
+            nlohmann::json expertItems = nlohmann::json::array();
+            for (const auto& mode : modeCatalog.experts()) {
+                expertItems.push_back(modeToJson(mode));
+            }
+
+            const auto activeModeToJson = [](const std::optional<ActiveModeState>& state) {
+                if (!state.has_value()) {
+                    return nlohmann::json(nullptr);
+                }
+                return nlohmann::json({
+                    {"kind", state->kind},
+                    {"name", state->name},
+                    {"description", state->description},
+                    {"target", state->target},
+                    {"skill", state->skillName},
+                    {"tools", state->allowedTools},
+                });
+            };
+
+            nlohmann::json activeSkill = nlohmann::json(nullptr);
+            if (!activeSkillName.empty()) {
+                activeSkill = {
+                    {"name", activeSkillName},
+                    {"target", activeSkillTarget},
+                    {"tools", activeAllowedTools},
+                };
+            }
+
             return nlohmann::json({
                 {"model", appConfig.llm.model},
                 {"base_url", appConfig.llm.baseUrl},
@@ -893,9 +1013,16 @@ int main(int argc, char* argv[]) {
                 {"permission_mode", permissionModeName(permissions.mode())},
                 {"tools", toolItems},
                 {"skills", skillItems},
+                {"workflows", workflowItems},
+                {"experts", expertItems},
+                {"active_skill", activeSkill},
+                {"active_workflow", activeModeToJson(activeWorkflow)},
+                {"active_expert", activeModeToJson(activeExpert)},
                 {"commands", nlohmann::json::array({
                     "/web", "/doctor", "/skills", "/search <query>", "/mcp-demo",
-                    "/mcp-call-demo", "/history", "/load <log.jsonl>"
+                    "/mcp-call-demo", "/history", "/load <log.jsonl>",
+                    "/modes", "/use-workflow <name> [target]", "/use-expert <name> [target]",
+                    "/clear-mode"
                 })},
             });
         };
@@ -1008,7 +1135,38 @@ int main(int argc, char* argv[]) {
             systemPrompt += agentsMdContent;
         }
 
-        session.addMessage(makeMessage(Role::System, systemPrompt));
+        const auto appendCurrentSystemMessages = [&]() {
+            session.addMessage(makeMessage(Role::System, systemPrompt));
+
+            if (!activeSkillName.empty()) {
+                const auto* skill = skillCatalog.find(activeSkillName);
+                if (skill != nullptr) {
+                    session.addMessage(makeMessage(Role::System, makeSkillSystemMessage(*skill, activeSkillTarget)));
+                }
+            }
+
+            if (activeWorkflow.has_value()) {
+                const auto* workflow = modeCatalog.findWorkflow(activeWorkflow->name);
+                if (workflow != nullptr) {
+                    session.addMessage(makeMessage(Role::System, makeModeSystemMessage(*workflow, activeWorkflow->target)));
+                }
+            }
+
+            if (activeExpert.has_value()) {
+                const auto* expert = modeCatalog.findExpert(activeExpert->name);
+                if (expert != nullptr) {
+                    session.addMessage(makeMessage(Role::System, makeModeSystemMessage(*expert, activeExpert->target)));
+                    if (!expert->skillName.empty()) {
+                        const auto* skill = skillCatalog.find(expert->skillName);
+                        if (skill != nullptr) {
+                            session.addMessage(makeMessage(Role::System, makeSkillSystemMessage(*skill, activeExpert->target)));
+                        }
+                    }
+                }
+            }
+        };
+
+        appendCurrentSystemMessages();
 
         // Inject messages loaded via CLI /load, if any.
         if (!preloadedMessages.empty()) {
@@ -1017,9 +1175,156 @@ int main(int argc, char* argv[]) {
             }
         }
 
+        const auto refreshWebStatus = [&]() {
+            const auto payload = buildWebStatusPayload();
+            if (webServer) {
+                webServer->setStatusPayload(payload);
+            }
+            return payload;
+        };
+
+        const auto selectWorkflowMode = [&](const std::string& name, const std::string& target) {
+            const auto* mode = modeCatalog.findWorkflow(name);
+            if (mode == nullptr) {
+                return std::string("Unknown workflow mode: " + name);
+            }
+
+            activeWorkflow = ActiveModeState{
+                "workflow",
+                mode->name,
+                mode->description,
+                target,
+                "",
+                mode->allowedTools,
+            };
+            session.addMessage(makeMessage(Role::System, makeModeSystemMessage(*mode, target)));
+            logger.log(
+                "workflow_selected",
+                {
+                    {"name", mode->name},
+                    {"description", mode->description},
+                    {"target", target},
+                    {"allowed_tools", mode->allowedTools},
+                }
+            );
+            if (webServer) {
+                webServer->pushEvent(
+                    "mode",
+                    "workflow: " + mode->name,
+                    target.empty() ? mode->description : target,
+                    {{"kind", "workflow"}, {"name", mode->name}, {"target", target}}
+                );
+            }
+            refreshWebStatus();
+            return std::string();
+        };
+
+        const auto selectExpertMode = [&](const std::string& name, const std::string& target) {
+            const auto* mode = modeCatalog.findExpert(name);
+            if (mode == nullptr) {
+                return std::string("Unknown expert mode: " + name);
+            }
+
+            std::vector<std::string> effectiveAllowedTools = mode->allowedTools;
+            if (!mode->skillName.empty()) {
+                const auto* bundledSkill = skillCatalog.find(mode->skillName);
+                if (bundledSkill == nullptr) {
+                    return std::string("Expert mode '") + mode->name +
+                           "' references missing skill '" + mode->skillName + "'.";
+                }
+                if (effectiveAllowedTools.empty()) {
+                    effectiveAllowedTools = bundledSkill->allowedTools;
+                }
+            }
+
+            activeExpert = ActiveModeState{
+                "expert",
+                mode->name,
+                mode->description,
+                target,
+                mode->skillName,
+                effectiveAllowedTools,
+            };
+            session.addMessage(makeMessage(Role::System, makeModeSystemMessage(*mode, target)));
+            if (!mode->skillName.empty()) {
+                const auto* bundledSkill = skillCatalog.find(mode->skillName);
+                if (bundledSkill != nullptr) {
+                    session.addMessage(makeMessage(Role::System, makeSkillSystemMessage(*bundledSkill, target)));
+                }
+            }
+            logger.log(
+                "expert_selected",
+                {
+                    {"name", mode->name},
+                    {"description", mode->description},
+                    {"target", target},
+                    {"bundled_skill", mode->skillName},
+                    {"allowed_tools", effectiveAllowedTools},
+                }
+            );
+            if (webServer) {
+                webServer->pushEvent(
+                    "mode",
+                    "expert: " + mode->name,
+                    mode->skillName.empty() ? mode->description : ("skill: " + mode->skillName),
+                    {{"kind", "expert"}, {"name", mode->name}, {"skill", mode->skillName}, {"target", target}}
+                );
+            }
+            refreshWebStatus();
+            return std::string();
+        };
+
+        const auto clearModes = [&]() {
+            const auto workflowName = activeWorkflow.has_value() ? activeWorkflow->name : "";
+            const auto expertName = activeExpert.has_value() ? activeExpert->name : "";
+            activeWorkflow.reset();
+            activeExpert.reset();
+            session.addMessage(makeMessage(Role::System, "Workflow and expert modes are cleared. Return to the base cpp-ai-agent behavior."));
+            logger.log("mode_cleared", {{"workflow", workflowName}, {"expert", expertName}});
+            if (webServer) {
+                webServer->pushEvent(
+                    "mode",
+                    "mode cleared",
+                    "workflow/expert modes reset",
+                    {{"workflow", workflowName}, {"expert", expertName}}
+                );
+            }
+            refreshWebStatus();
+        };
+
         if (webMode && webServer) {
             std::mutex sessionMutex;
             bool firstWebUserMessage = preloadedMessages.empty();
+            webServer->setModeHandler(
+                [&sessionMutex, &selectWorkflowMode, &selectExpertMode, &clearModes, &refreshWebStatus, &webServer](const nlohmann::json& body) {
+                    std::lock_guard<std::mutex> lock(sessionMutex);
+                    const auto action = body.value("action", "");
+                    if (action == "clear") {
+                        clearModes();
+                        return nlohmann::json({{"ok", true}, {"status", refreshWebStatus()}});
+                    }
+
+                    const auto kind = body.value("kind", "");
+                    const auto name = body.value("name", "");
+                    const auto target = body.value("target", "");
+                    std::string error;
+                    if (kind == "workflow") {
+                        error = selectWorkflowMode(name, target);
+                    } else if (kind == "expert") {
+                        error = selectExpertMode(name, target);
+                    } else {
+                        error = "Unknown mode kind: " + kind;
+                    }
+
+                    if (!error.empty()) {
+                        if (webServer) {
+                            webServer->pushEvent("error", "mode", error);
+                        }
+                        return nlohmann::json({{"ok", false}, {"error", error}, {"status", refreshWebStatus()}});
+                    }
+                    return nlohmann::json({{"ok", true}, {"status", refreshWebStatus()}});
+                }
+            );
             webServer->setChatHandler(
                 [&session, &sessionMutex, &logger, &agentLoop, &firstWebUserMessage](const std::string& content) {
                     std::lock_guard<std::mutex> lock(sessionMutex);
@@ -1077,6 +1382,84 @@ int main(int argc, char* argv[]) {
 
             if (commandInput == "/skills") {
                 printSkills(skillCatalog);
+                continue;
+            }
+
+            if (commandInput == "/modes" || commandInput == "/workflows" || commandInput == "/experts") {
+                printModes(modeCatalog);
+                continue;
+            }
+
+            const std::string useWorkflowPrefix = "/use-workflow ";
+            if (commandInput == "/use-workflow") {
+                std::cout << "usage> /use-workflow <name> [target]\n";
+                printModes(modeCatalog);
+                continue;
+            }
+            if (commandInput.rfind(useWorkflowPrefix, 0) == 0) {
+                auto rest = trimCommandInput(commandInput.substr(useWorkflowPrefix.size()));
+                const auto firstSpace = rest.find(' ');
+                const auto workflowName = firstSpace == std::string::npos ? rest : rest.substr(0, firstSpace);
+                const auto workflowTarget = firstSpace == std::string::npos ? "" : trimCommandInput(rest.substr(firstSpace + 1));
+                const auto* workflow = modeCatalog.findWorkflow(workflowName);
+                const auto error = selectWorkflowMode(workflowName, workflowTarget);
+                if (!error.empty()) {
+                    console.printWarning(error);
+                    printModes(modeCatalog);
+                    continue;
+                }
+
+                std::cout << "workflow> active: " << workflowName << "\n";
+                if (!workflowTarget.empty()) {
+                    std::cout << "workflow> target: " << workflowTarget << "\n";
+                }
+                if (workflow != nullptr && !workflow->suggestedPrompt.empty()) {
+                    std::cout << "workflow> suggested prompt: " << workflow->suggestedPrompt << "\n";
+                }
+                std::cout << "\n";
+                continue;
+            }
+
+            const std::string useExpertPrefix = "/use-expert ";
+            if (commandInput == "/use-expert") {
+                std::cout << "usage> /use-expert <name> [target]\n";
+                printModes(modeCatalog);
+                continue;
+            }
+            if (commandInput.rfind(useExpertPrefix, 0) == 0) {
+                auto rest = trimCommandInput(commandInput.substr(useExpertPrefix.size()));
+                const auto firstSpace = rest.find(' ');
+                const auto expertName = firstSpace == std::string::npos ? rest : rest.substr(0, firstSpace);
+                const auto expertTarget = firstSpace == std::string::npos ? "" : trimCommandInput(rest.substr(firstSpace + 1));
+                const auto* expert = modeCatalog.findExpert(expertName);
+                const auto error = selectExpertMode(expertName, expertTarget);
+                if (!error.empty()) {
+                    console.printWarning(error);
+                    printModes(modeCatalog);
+                    continue;
+                }
+
+                std::cout << "expert> active: " << expertName << "\n";
+                if (expert != nullptr && !expert->skillName.empty()) {
+                    std::cout << "expert> bundled skill: " << expert->skillName << "\n";
+                }
+                if (!expertTarget.empty()) {
+                    std::cout << "expert> target: " << expertTarget << "\n";
+                }
+                if (expert != nullptr && !expert->suggestedPrompt.empty()) {
+                    std::cout << "expert> suggested prompt: " << expert->suggestedPrompt << "\n";
+                }
+                std::cout << "\n";
+                continue;
+            }
+
+            if (commandInput == "/clear-mode") {
+                if (!activeWorkflow.has_value() && !activeExpert.has_value()) {
+                    std::cout << "mode> no active workflow/expert mode.\n\n";
+                } else {
+                    clearModes();
+                    std::cout << "mode> workflow/expert modes cleared.\n\n";
+                }
                 continue;
             }
 
@@ -1253,7 +1636,7 @@ int main(int argc, char* argv[]) {
 
                 // Rebuild session: fresh System Prompt + loaded messages.
                 session = Session("default");
-                session.addMessage(makeMessage(Role::System, systemPrompt));
+                appendCurrentSystemMessages();
 
                 // Print a brief summary to help the user recall the context.
                 std::cout << "loaded> " << loadPath.filename().string()
