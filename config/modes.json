@@ -5,21 +5,50 @@
       "description": "Inspect first, plan in small steps, execute with minimal changes, then verify with build/test.",
       "suggested_prompt": "请先分析当前任务，再给出简短计划，然后逐步执行并验证结果。",
       "system_prompt": "Operate as a disciplined workflow agent. Inspect the repository first, summarize the scope, execute one coherent step at a time, verify with build or tests, and finish with a concise result report.",
-      "allowed_tools": ["read_file", "list_dir", "edit_file", "write_file", "run_command"]
+      "allowed_tools": [
+        "read_file",
+        "list_dir",
+        "edit_file",
+        "write_file",
+        "run_command"
+      ]
     },
     {
       "name": "demo-story",
       "description": "Turn scattered capabilities into one coherent demo narrative for defense.",
       "suggested_prompt": "请把当前功能组织成一条适合答辩演示的叙事主线。",
       "system_prompt": "Operate as a demo workflow agent. Prefer visible checkpoints, short transitions, and proof of execution over broad explanations.",
-      "allowed_tools": ["read_file", "list_dir", "run_command", "write_file", "edit_file"]
+      "allowed_tools": [
+        "read_file",
+        "list_dir",
+        "run_command",
+        "write_file",
+        "edit_file"
+      ]
     },
     {
       "name": "docs-sync",
       "description": "Keep code changes, docs, and demo commands aligned in the same pass.",
       "suggested_prompt": "请同步更新代码、文档和演示命令，保证三者一致。",
       "system_prompt": "Operate as a documentation-aware workflow agent. When functionality changes, update the relevant docs and demo guidance in the same pass.",
-      "allowed_tools": ["read_file", "edit_file", "write_file", "run_command"]
+      "allowed_tools": [
+        "read_file",
+        "edit_file",
+        "write_file",
+        "run_command"
+      ]
+    },
+    {
+      "name": "defense-qa-brief",
+      "description": "Turn project facts into defense-ready claims, evidence, demo steps, and Q&A fallback.",
+      "suggested_prompt": "请把当前项目整理成答辩可直接使用的四块：结论、证据、演示动作和评委追问应对。",
+      "system_prompt": "Operate as a defense briefing workflow agent. Gather evidence from the repository and docs first, then produce a compact briefing with claim, proof, demo step, and risk note. Prefer concrete artifacts and short speaking points over broad advice.",
+      "allowed_tools": [
+        "read_file",
+        "list_dir",
+        "run_command",
+        "web_search"
+      ]
     }
   ],
   "experts": [
