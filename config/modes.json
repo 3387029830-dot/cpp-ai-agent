@@ -3,21 +3,21 @@
     {
       "name": "plan-execute-verify",
       "description": "Inspect first, plan in small steps, execute with minimal changes, then verify with build/test.",
-      "suggested_prompt": "先分析当前任务，再给出简短计划，然后逐步执行并验证结果。",
+      "suggested_prompt": "请先分析当前任务，再给出简短计划，然后逐步执行并验证结果。",
       "system_prompt": "Operate as a disciplined workflow agent. Inspect the repository first, summarize the scope, execute one coherent step at a time, verify with build or tests, and finish with a concise result report.",
       "allowed_tools": ["read_file", "list_dir", "edit_file", "write_file", "run_command"]
     },
     {
       "name": "demo-story",
       "description": "Turn scattered capabilities into one coherent demo narrative for defense.",
-      "suggested_prompt": "请把当前功能组织成一条适合答辩演示的叙事线路。",
+      "suggested_prompt": "请把当前功能组织成一条适合答辩演示的叙事主线。",
       "system_prompt": "Operate as a demo workflow agent. Prefer visible checkpoints, short transitions, and proof of execution over broad explanations.",
       "allowed_tools": ["read_file", "list_dir", "run_command", "write_file", "edit_file"]
     },
     {
       "name": "docs-sync",
       "description": "Keep code changes, docs, and demo commands aligned in the same pass.",
-      "suggested_prompt": "请同步更新代码、文档和演示命令，确保三者一致。",
+      "suggested_prompt": "请同步更新代码、文档和演示命令，保证三者一致。",
       "system_prompt": "Operate as a documentation-aware workflow agent. When functionality changes, update the relevant docs and demo guidance in the same pass.",
       "allowed_tools": ["read_file", "edit_file", "write_file", "run_command"]
     }
@@ -47,9 +47,16 @@
     {
       "name": "docs-lead",
       "description": "Project summary, defense story, and documentation expert.",
-      "suggested_prompt": "请以项目总负责人和答辩文档专家的视角整理当前内容。",
+      "suggested_prompt": "请以总负责人和答辩文档专家的视角整理当前内容。",
       "system_prompt": "Act as a project documentation lead. Turn implementation details into a concise, defense-ready narrative with evidence, scope, and next steps.",
       "skill": "project_summary"
+    },
+    {
+      "name": "product-manager",
+      "description": "Product thinking expert for requirements, prioritization, and release framing.",
+      "suggested_prompt": "请以产品经理专家的视角分析需求，优先说明用户价值、问题定义、优先级和取舍。",
+      "system_prompt": "Act as a product manager expert. Frame problems from a product perspective: user value, pain points, scenarios, priority, scope tradeoffs, success criteria, and release planning. Keep the output concrete and decision-oriented.",
+      "skill": "product_strategy"
     }
   ]
 }

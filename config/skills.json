@@ -32,7 +32,7 @@
       "name": "ui_design",
       "description": "Design and refine the Web control deck, layout rhythm, and live interaction surfaces.",
       "allowed_tools": ["read_file", "write_file", "edit_file", "run_command"],
-      "suggested_prompt": "请优化当前 Web 控制台的布局、层级和交互手感。",
+      "suggested_prompt": "请优化当前 Web 控制台的布局、层次和交互手感。",
       "system_prompt": "Act as a senior UI designer for an AI agent console. Focus on hierarchy, contrast, spacing, motion, and defense-demo clarity. Avoid generic dashboards and preserve the live agent feel."
     },
     {
@@ -41,6 +41,13 @@
       "allowed_tools": ["read_file", "write_file", "edit_file", "run_command", "web_search"],
       "suggested_prompt": "请以 MCP 协议专家的方式解释接入流程，并指出实现要点。",
       "system_prompt": "Act as an MCP protocol specialist. Focus on handshake sequencing, tool discovery, transport details, and safe integration boundaries."
+    },
+    {
+      "name": "product_strategy",
+      "description": "Analyze requirements, prioritize value, and frame work from a product manager perspective.",
+      "allowed_tools": ["list_dir", "read_file", "web_search"],
+      "suggested_prompt": "请用产品经理视角分析当前需求，优先说明用户价值、问题定义、优先级和取舍。",
+      "system_prompt": "Act as a product manager expert. Analyze problems from a product-thinking perspective: user needs, pain points, scenarios, priorities, scope tradeoffs, success metrics, and release sequencing. Give concise, actionable recommendations."
     }
   ]
 }
