@@ -52,6 +52,7 @@ struct ActiveModeState {
     std::string name;
     std::string description;
     std::string target;
+    std::string contractTemplate;
     std::string skillName;
     std::vector<std::string> allowedTools;
 };
@@ -344,6 +345,9 @@ void printModes(const cpp_ai_agent::modes::ModeCatalog& catalog) {
     }
     for (const auto& mode : catalog.workflows()) {
         std::cout << "  - " << mode.name << ": " << mode.description << "\n";
+        if (!mode.contractTemplate.empty()) {
+            std::cout << "    contract: " << mode.contractTemplate << "\n";
+        }
         if (!mode.allowedTools.empty()) {
             std::cout << "    tools: ";
             for (std::size_t i = 0; i < mode.allowedTools.size(); ++i) {
@@ -967,6 +971,7 @@ int main(int argc, char* argv[]) {
                     {"kind", cpp_ai_agent::modes::modeKindToString(mode.kind)},
                     {"description", mode.description},
                     {"suggested_prompt", mode.suggestedPrompt},
+                    {"contract_template", mode.contractTemplate},
                     {"skill", mode.skillName},
                     {"tools", mode.allowedTools},
                 });
@@ -991,6 +996,7 @@ int main(int argc, char* argv[]) {
                     {"name", state->name},
                     {"description", state->description},
                     {"target", state->target},
+                    {"contract_template", state->contractTemplate},
                     {"skill", state->skillName},
                     {"tools", state->allowedTools},
                 });
@@ -1194,6 +1200,7 @@ int main(int argc, char* argv[]) {
                 mode->name,
                 mode->description,
                 target,
+                mode->contractTemplate,
                 "",
                 mode->allowedTools,
             };
@@ -1242,6 +1249,7 @@ int main(int argc, char* argv[]) {
                 mode->name,
                 mode->description,
                 target,
+                mode->contractTemplate,
                 mode->skillName,
                 effectiveAllowedTools,
             };

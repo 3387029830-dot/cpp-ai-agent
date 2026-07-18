@@ -27,6 +27,7 @@ ModePreset parseModePreset(const nlohmann::json& raw, ModeKind kind) {
     mode.description = raw.value("description", "");
     mode.suggestedPrompt = raw.value("suggested_prompt", "");
     mode.systemPrompt = raw.value("system_prompt", "");
+    mode.contractTemplate = raw.value("contract_template", "");
     mode.skillName = raw.value("skill", raw.value("skill_name", ""));
     for (const auto& rawTool : raw.value("allowed_tools", nlohmann::json::array())) {
         mode.allowedTools.push_back(rawTool.get<std::string>());
@@ -128,6 +129,9 @@ std::string makeModeSystemMessage(const ModePreset& mode, const std::string& tar
     }
     if (!mode.systemPrompt.empty()) {
         message += "Follow these mode instructions: " + mode.systemPrompt;
+    }
+    if (!mode.contractTemplate.empty()) {
+        message += " Contract template: " + mode.contractTemplate;
     }
     if (mode.kind == ModeKind::Expert && !mode.skillName.empty()) {
         message += " Bundled skill: " + mode.skillName + ".";

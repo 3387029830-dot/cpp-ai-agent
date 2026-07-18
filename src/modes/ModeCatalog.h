@@ -17,6 +17,7 @@ struct ModePreset {
     std::string description;
     std::string suggestedPrompt;
     std::string systemPrompt;
+    std::string contractTemplate;
     std::string skillName;
     std::vector<std::string> allowedTools;
 };

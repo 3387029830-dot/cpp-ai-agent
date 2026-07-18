@@ -23,6 +23,7 @@ const workflowCards = document.getElementById("workflow-cards");
 const expertCards = document.getElementById("expert-cards");
 const runCards = document.getElementById("run-cards");
 const activeWorkflowText = document.getElementById("active-workflow");
+const activeContractText = document.getElementById("active-contract");
 const activeExpertText = document.getElementById("active-expert");
 const activeSkillText = document.getElementById("active-skill");
 const clearModeButton = document.getElementById("clear-mode");
@@ -391,6 +392,7 @@ function hydrateStatus(status) {
   skillCount.textContent = String(statusCache.skills.length);
   toolCount.textContent = String(statusCache.tools.length);
   activeWorkflowText.textContent = status.active_workflow?.name || "基础";
+  activeContractText.textContent = status.active_workflow?.contract_template || "未定义";
   activeExpertText.textContent = status.active_expert?.name || "通用";
   activeSkillText.textContent = status.active_skill?.name || status.active_expert?.skill || "无";
   renderMainViews();
@@ -542,10 +544,11 @@ function renderMainViews() {
 
   for (const workflow of statusCache.workflows) {
     const allowed = (workflow.tools || []).join(", ");
+    const contract = workflow.contract_template || "";
     workflowCards.appendChild(card(
       workflow.name,
       "工作流模式",
-      `${workflow.description || ""}${allowed ? ` · 工具：${allowed}` : ""}`,
+      `${workflow.description || ""}${contract ? ` · 合同：${contract}` : ""}${allowed ? ` · 工具：${allowed}` : ""}`,
       "workflow",
       () => applyMode("workflow", workflow.name),
     ));
