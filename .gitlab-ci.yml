@@ -247,24 +247,16 @@ deploy-linux:
       optional: true
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
-  script:
-    - echo "=== Packaging Linux release ==="
+  before_script:
+    - echo "=== Packaging Release ==="
     - bash scripts/package_linux.sh
-    - echo "=== Ansible deploy ==="
-    - ansible-playbook -i ansible/inventory.ini ansible/deploy.yml --extra-vars "version=${CI_COMMIT_SHORT_SHA}" 2>/dev/null || echo "Ansible: no target configured (add host to ansible/inventory.ini)"
-    - echo "=== Creating Release ==="
-    - PACKAGE=$(ls build-output/ai-agent-v*.tar.gz 2>/dev/null | head -1)
-    - echo "Package: ${PACKAGE}"
-    - |
-      curl -s --request POST \
-        --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
-        --header "Content-Type: application/json" \
-        --data "{
-          \"tag_name\": \"v${CI_COMMIT_SHORT_SHA}\",
-          \"name\": \"Build ${CI_COMMIT_SHORT_SHA}\",
-          \"description\": \"Automated CI/CD build from branch main.\n\nLinux: download from Job artifacts.\nWindows: build locally with scripts/package_windows.bat\"
-        }" \
-        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/releases" || echo "Release: creation skipped (may need Maintainer permissions)"
+  script:
+    - echo "=== Creating GitLab Release ==="
+    - TAG="v$(date +%Y%m%d-%H%M%S)"
+    - REF=$(git rev-parse HEAD)
+    - release-cli --server-url ${CI_SERVER_URL} --project-id ${CI_PROJECT_ID} --private-token ${GITLAB_RELEASE_TOKEN} create --tag-name "$TAG" --ref "$REF" --description "Build ${CI_COMMIT_SHORT_SHA}"
+    - echo "=== Ansible deploy (stub) ==="
+    - ansible-playbook -i ansible/inventory.ini ansible/deploy.yml --extra-vars "version=${CI_COMMIT_SHORT_SHA}" 2>/dev/null || echo "Ansible deploy skipped (not configured)"
   artifacts:
     name: ai-agent-linux-${CI_COMMIT_SHORT_SHA}
     paths:
